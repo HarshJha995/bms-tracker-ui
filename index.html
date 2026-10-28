@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1115">
+<title>Show Watcher</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#14171f;--mute:#6b7280;--line:#e3e6eb;--acc:#d6336c;--accink:#fff;--ok:#15803d;--warn:#b45309;--bad:#b91c1c;--chip:#eef0f4}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1115;--card:#181b22;--ink:#eef0f4;--mute:#9aa1ae;--line:#2a2f3a;--acc:#f06595;--accink:#14171f;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--chip:#242936}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0 16px calc(40px + env(safe-area-inset-bottom))}
+main{max-width:640px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:calc(18px + env(safe-area-inset-top)) 0 10px}
+h1{font-size:22px;margin:0}
+h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:26px 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sp{justify-content:space-between}
+.name{font-weight:650}
+.sub{color:var(--mute);font-size:14px}
+.pill{font-size:12px;font-weight:650;border-radius:99px;padding:2px 9px;background:var(--chip)}
+.pill.active{color:var(--ok)}.pill.paused,.pill.done{color:var(--warn)}.pill.expired{color:var(--bad)}
+button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer;min-height:42px}
+button.pri{background:var(--acc);color:var(--accink);border-color:transparent}
+button.dng{color:var(--bad)}
+button:disabled{opacity:.5}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
+input,select{font:inherit;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-height:44px}
+input[type=checkbox]{width:auto;min-height:0;margin-right:8px}
+.chk{display:flex;align-items:center;font-weight:500;margin:10px 0}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+input[type=date]{min-width:0;-webkit-appearance:none;appearance:none}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chips button{min-height:32px;padding:3px 10px;font-size:13px;background:var(--chip)}
+details.card>summary{cursor:pointer;font-weight:650;list-style:none}
+details.card>summary::-webkit-details-marker{display:none}
+.hint{font-size:13px;color:var(--mute);margin-top:6px}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:608px;margin:0 auto;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;display:none;z-index:9}
+#toast a{color:inherit}
+.empty{text-align:center;color:var(--mute);padding:22px 10px}
+ol{padding-left:20px;margin:8px 0}
+code{background:var(--chip);padding:1px 5px;border-radius:5px;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>🎬 Show Watcher</h1>
+  <button id="refresh" aria-label="Refresh">↻ Refresh</button>
+</header>
+
+<div id="app"></div>
+
+<h2>Settings</h2>
+<details class="card" id="settings">
+  <summary>GitHub connection</summary>
+  <label for="repo">Repository</label>
+  <input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <label for="token">Access token</label>
+  <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
+  <div class="hint">Stays in this browser only. Create a <b>fine-grained</b> token for just this repository with <b>Actions: Read and write</b> and <b>Contents: Read-only</b>, and give it an expiry date.</div>
+  <div class="row" style="margin-top:12px">
+    <button class="pri" id="save">Save &amp; connect</button>
+    <button class="dng" id="forget">Forget token</button>
+  </div>
+</details>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+const API = window.BMS_API || "https://api.github.com";
+const cfg = { repo: store.get("bmsw.repo", "HarshJha995/bms-watcher"), token: store.get("bmsw.token", ""), ref: "main" };
+let data = { watches: [], state: {}, catalog: [], loaded: false };
+const shortName = (n) => String(n).split(",")[0].trim();     // theatre keyword; commas separate keywords
+let busy = false;
+
+// ---------- GitHub ----------
+async function gh(path, opts = {}) {
+  const r = await fetch(API + path, { ...opts, cache: "no-store", headers: {
+    Authorization: "Bearer " + cfg.token, Accept: opts.accept || "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28", ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
+  if (r.status === 401) throw new Error("GitHub rejected the token (expired or wrong).");
+  return r;
+}
+async function readJson(file, fallback) {
+  const r = await gh(`/repos/${cfg.repo}/contents/${file}?ref=${cfg.ref}&t=${Date.now()}`, { accept: "application/vnd.github.raw+json" });
+  if (r.status === 404) return fallback;
+  if (!r.ok) throw new Error(`Could not read ${file} (HTTP ${r.status}). Check the token has Contents: Read.`);
+  return JSON.parse(await r.text());
+}
+async function load() {
+  if (!cfg.token) return render();
+  try {
+    const [config, state, cat] = await Promise.all([readJson("watches.json", { watches: [] }), readJson("state.json", {}), readJson("catalog.json", {})]);
+    data.watches = config.watches || [];
+    data.state = state || {};
+    data.catalog = Object.values(cat || {}).flatMap((c) => (c.movies || []).map((m) => m.title));
+    data.loaded = true;
+    data.error = null;
+  } catch (e) { data.error = e.message; }
+  render();
+}
+
+// ---------- scheduling logic (mirrors watcher.py) ----------
+const IST = "Asia/Kolkata";
+const todayIST = () => new Intl.DateTimeFormat("en-CA", { timeZone: IST }).format(new Date());
+function watchStatus(w, ws) {
+  if (w.enabled === false) return "paused";
+  if (ws && ws.done) return "done";
+  const exp = w.expires || (w.dates && w.dates.to);
+  if (exp && exp < todayIST()) return "expired";
+  return "active";
+}
+function interval(w) {
+  const t = (w.dates && w.dates.from) || w.release_date;
+  if (!t) return 30;
+  const days = (new Date(t + "T00:00:00+05:30") - Date.now()) / 864e5;
+  if (days <= 7) return 30;
+  if (days >= 14) return 90;
+  return Math.max(30, Math.min(90, Math.round((30 + 60 * (days - 7) / 7) / 15) * 15));
+}
+function ago(iso) {
+  if (!iso) return "never";
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+  return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago";
+}
+const fmtDate = (d) => d ? new Date(d + "T00:00:00+05:30").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: IST }) : "";
+
+// ---------- actions ----------
+function toast(html, ms = 0) {
+  const t = $("#toast"); t.innerHTML = html; t.style.display = "block";
+  clearTimeout(toast.h); if (ms) toast.h = setTimeout(() => (t.style.display = "none"), ms);
+}
+async function dispatch(workflow, inputs, label) {
+  if (busy) return;
+  busy = true; render();
+  const started = Date.now();
+  try {
+    toast(`⏳ ${esc(label)}…`);
+    const r = await gh(`/repos/${cfg.repo}/actions/workflows/${workflow}/dispatches`, { method: "POST", body: JSON.stringify({ ref: cfg.ref, inputs }) });
+    if (r.status !== 204) {
+      const msg = (await r.json().catch(() => ({}))).message || "HTTP " + r.status;
+      throw new Error(msg + (r.status === 403 || r.status === 404 ? " (token needs Actions: Read and write)" : ""));
+    }
+    let run = null;
+    for (let i = 0; i < 60 && !(run && run.status === "completed"); i++) {
+      await new Promise((res) => setTimeout(res, i < 3 ? 2500 : 4000));
+      const rr = await gh(`/repos/${cfg.repo}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=5`);
+      const list = (await rr.json()).workflow_runs || [];
+      run = list.find((x) => new Date(x.created_at).getTime() >= started - 15000) || null;
+      if (run) toast(`⏳ ${esc(label)}… ${esc(run.status.replace("_", " "))}`);
+    }
+    if (!run) throw new Error("The run didn't start. Check the Actions tab.");
+    if (run.status !== "completed") { toast(`Still running — <a href="${esc(run.html_url)}" target="_blank" rel="noopener">view the run</a>`, 8000); }
+    else if (run.conclusion === "success") toast(`✅ ${esc(label)} done`, 5000);
+    else toast(`❌ ${esc(label)} failed — <a href="${esc(run.html_url)}" target="_blank" rel="noopener">see the log</a>`, 12000);
+  } catch (e) { toast("❌ " + esc(e.message), 9000); }
+  busy = false;
+  await load();
+}
+const control = (command, inputs = {}, label) => dispatch("control.yaml", { command, ...inputs }, label || command);
+
+// ---------- rendering ----------
+function render() {
+  const app = $("#app");
+  if (!cfg.token) $("#settings").open = true;
+  if (!cfg.token) {
+    app.innerHTML = `<div class="card"><div class="name">Connect to GitHub</div><ol class="sub">
+      <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate</li>
+      <li>Repository access: only <code>${esc(cfg.repo)}</code></li>
+      <li>Permissions: <b>Actions: Read and write</b>, <b>Contents: Read-only</b></li>
+      <li>Paste it under Settings below and tap Save &amp; connect.</li></ol></div>`;
+    return;
+  }
+  if (data.error) { app.innerHTML = `<div class="card"><div class="name">Couldn't load</div><div class="sub">${esc(data.error)}</div></div>`; return; }
+  if (!data.loaded) { app.innerHTML = `<div class="empty">Loading…</div>`; return; }
+
+  const dis = busy ? "disabled" : "";
+  const cards = data.watches.map((w, i) => {
+    const ws = (data.state.watches || {})[w.name] || {};
+    const st = watchStatus(w, ws);
+    const when = w.dates && w.dates.from ? `${fmtDate(w.dates.from)}${w.dates.to && w.dates.to !== w.dates.from ? " – " + fmtDate(w.dates.to) : ""}` : (w.release_date ? "releases " + fmtDate(w.release_date) : "next 14 days");
+    const bits = [(w.theatres || []).join(", ") || "any theatre", when, (w.languages || []).join("/"), (w.formats || []).join("/").toUpperCase(), w.once ? "alert once" : ""].filter(Boolean);
+    return `<div class="card"><div class="row sp"><span class="name">${esc(w.movie || w.name)}</span><span class="pill ${st}">${st.toUpperCase()}</span></div>
+      <div class="sub">${esc(bits.join(" · "))}</div>
+      <div class="sub">${st === "active" ? `Checks every ${interval(w)} min · last ${esc(ago(ws.last_check))}` : ""}${ws.last_alert ? ` · last alert ${esc(ago(ws.last_alert))}` : ""} · ${(ws.seen || []).length} shows known</div>
+      <div class="row" style="margin-top:10px">
+        ${st === "active" ? `<button data-a="pause" data-i="${i}" ${dis}>Pause</button>` : `<button data-a="resume" data-i="${i}" ${dis}>Resume</button>`}
+        <button class="dng" data-a="remove" data-i="${i}" ${dis}>Remove</button></div></div>`;
+  }).join("");
+
+  const cron = data.state.cron_enabled;
+  data.theatres = [...new Set([...Object.values(data.state.venues || {}).map(shortName), ...data.watches.flatMap((w) => w.theatres || [])])]
+    .sort((a, b) => a.localeCompare(b));
+  data.theatres = data.theatres.filter((t, _, all) => !all.some((u) => u !== t && u.toLowerCase().includes(t.toLowerCase())));   // hide keywords covered by a full name
+  app.innerHTML = `
+    <h2>Watching (${data.watches.length})</h2>
+    ${cards || `<div class="empty card">Nothing is being watched yet. Add a watch below.</div>`}
+
+    <h2>Add a watch</h2>
+    <details class="card" id="addbox"><summary>＋ New watch</summary>
+      <form id="addform" autocomplete="off">
+        <label for="movie">Movie name</label>
+        <input id="movie" list="movies" required placeholder="Paste or type from the BookMyShow app" autocapitalize="off">
+        <datalist id="movies">${[...new Set(data.catalog)].map((t) => `<option value="${esc(t)}">`).join("")}</datalist>
+        <label for="theatres">Theatre(s)</label>
+        <input id="theatres" required placeholder="Start typing a theatre…" autocapitalize="off" aria-controls="sug">
+        <div class="chips" id="sug"></div>
+        <div class="hint">Pick from theatres seen in earlier checks, or type any part of a theatre's name. Add several one after another.</div>
+        <div class="two"><div><label for="langs">Languages</label><input id="langs" value="hindi, english"></div>
+          <div><label for="fmt">Format</label><select id="fmt"><option value="">Any</option><option value="3d">3D only</option></select></div></div>
+        <div class="two"><div><label for="from">From date</label><input id="from" type="date"></div>
+          <div><label for="to">To date</label><input id="to" type="date"></div></div>
+        <div class="hint">Leave dates empty to start from the release date. 3D shows are always listed first.</div>
+        <label for="codes">Event code(s) <span class="sub">(optional — for a special version like Dolby 3D)</span></label>
+        <input id="codes" placeholder="ET00523251" autocapitalize="characters">
+        <label class="chk"><input type="checkbox" id="notify"> Alert for shows that already exist on the first check</label>
+        <label class="chk"><input type="checkbox" id="once"> Stop after the first alert</label>
+        <div class="row"><button class="pri" type="submit" ${dis}>Add watch</button>
+          <button type="button" id="lookup" ${dis}>Just look up the code</button></div>
+        <div class="hint">The name is matched loosely, so partial names and small typos are fine. The result also arrives as a notification.</div>
+      </form></details>
+
+    <h2>Tools</h2>
+    <div class="card">
+      <div class="row sp"><span>Scheduler (cron job)</span><span class="pill ${cron === true ? "active" : "paused"}">${cron === true ? "ON" : cron === false ? "OFF" : "UNKNOWN"}</span></div>
+      <div class="row" style="margin-top:10px">
+        <button data-t="cron_on" ${dis}>Turn on</button><button data-t="cron_off" ${dis}>Turn off</button>
+        <button data-t="check" ${dis}>Check now</button><button data-t="test_alert" ${dis}>Test alert</button>
+        <button data-t="status" ${dis}>Send status</button></div>
+    </div>`;
+}
+
+// ---------- events ----------
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.a) {
+    const w = data.watches[+b.dataset.i];
+    if (b.dataset.a === "remove" && !confirm(`Remove “${w.movie || w.name}”?`)) return;
+    control(b.dataset.a, { name: w.name }, `${b.dataset.a} ${w.movie || w.name}`);
+  } else if (b.dataset.t === "check") dispatch("watcher.yaml", { force: "true" }, "Checking now");
+  else if (b.dataset.t) control(b.dataset.t, {}, b.textContent);
+  else if (b.dataset.th) {
+    const i = $("#theatres"), parts = i.value.split(",").map((x) => x.trim()).filter(Boolean);
+    if (i.dataset.typing) parts.pop();                      // replace the half-typed segment
+    i.value = [...parts, b.dataset.th].join(", ") + ", "; i.dataset.typing = ""; i.focus(); suggest();
+  }
+  else if (b.id === "lookup") {
+    const m = $("#movie").value.trim(); if (!m) return $("#movie").focus();
+    control("lookup", { movie: m }, "Looking up");
+  }
+});
+document.addEventListener("submit", (e) => {
+  if (e.target.id !== "addform") return;
+  e.preventDefault();
+  const v = (id) => $("#" + id).value.trim().replace(/^,+|,+$/g, "").trim();
+  control("add", {
+    movie: v("movie"), theatres: v("theatres"), languages: v("langs") || "any", formats: v("fmt"),
+    from_date: v("from"), to_date: v("to"), event_codes: v("codes"),
+    notify_existing: String($("#notify").checked), once: String($("#once").checked),
+  }, "Adding watch");
+});
+function suggest() {
+  const i = $("#theatres"), box = $("#sug"); if (!i || !box) return;
+  const segs = i.value.split(","), last = segs[segs.length - 1].trim().toLowerCase();
+  const chosen = segs.slice(0, -1).map((x) => x.trim().toLowerCase());
+  i.dataset.typing = last ? "1" : "";
+  const list = (data.theatres || []).filter((t) => !chosen.includes(t.toLowerCase()) && t.toLowerCase().includes(last)).slice(0, 8);
+  box.innerHTML = list.map((t) => `<button type="button" data-th="${esc(t)}">${esc(t)}</button>`).join("");
+}
+document.addEventListener("input", (e) => { if (e.target.id === "theatres") suggest(); });
+document.addEventListener("focusin", (e) => { if (e.target.id === "theatres") suggest(); });
+$("#refresh").onclick = () => load();
+$("#save").onclick = () => {
+  cfg.repo = $("#repo").value.trim() || cfg.repo; cfg.token = $("#token").value.trim() || cfg.token;
+  store.set("bmsw.repo", cfg.repo); store.set("bmsw.token", cfg.token); $("#token").value = ""; load();
+};
+$("#forget").onclick = () => { store.del("bmsw.token"); cfg.token = ""; data.loaded = false; render(); };
+$("#repo").value = cfg.repo;
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !busy) load(); });
+load();
+</script>
+</body>
+</html>
