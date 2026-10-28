@@ -4,77 +4,262 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0f1115">
-<title>Show Watcher</title>
+<meta name="apple-mobile-web-app-title" content="Movie Tracker">
+<meta name="theme-color" content="#1f2433">
+<title>My Personal Movie Tracker</title>
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--ink:#14171f;--mute:#6b7280;--line:#e3e6eb;--acc:#d6336c;--accink:#fff;--ok:#15803d;--warn:#b45309;--bad:#b91c1c;--chip:#eef0f4}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1115;--card:#181b22;--ink:#eef0f4;--mute:#9aa1ae;--line:#2a2f3a;--acc:#f06595;--accink:#14171f;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--chip:#242936}}
+:root{
+  --bg:#f3f4f8;--surface:#fff;--ink:#1e2230;--mute:#667085;--line:#e3e6ee;--chip:#eef0f6;
+  --brand:#f84464;--brand-ink:#fff;--brand-soft:#fde7ec;--nav:#1f2433;--nav-ink:#fff;
+  --ok:#0f9d58;--warn:#b86e00;--bad:#d92d4b;--ok-soft:#e3f6ec;--warn-soft:#fdf0d8;--bad-soft:#fde7ec;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 8px 24px rgba(20,24,40,.06);--r:16px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f121a;--surface:#181d2b;--ink:#eceef5;--mute:#98a1b5;--line:#272d3f;--chip:#232a3b;
+  --brand:#ff5a78;--brand-ink:#1a0b10;--brand-soft:#3a1a24;--nav:#0b0e15;
+  --ok:#3ddc84;--warn:#fbbf24;--bad:#ff7a90;--ok-soft:#14301f;--warn-soft:#33270c;--bad-soft:#3a1a24;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3)}}
+:root[data-theme=dark]{
+  --bg:#0f121a;--surface:#181d2b;--ink:#eceef5;--mute:#98a1b5;--line:#272d3f;--chip:#232a3b;
+  --brand:#ff5a78;--brand-ink:#1a0b10;--brand-soft:#3a1a24;--nav:#0b0e15;
+  --ok:#3ddc84;--warn:#fbbf24;--bad:#ff7a90;--ok-soft:#14301f;--warn-soft:#33270c;--bad-soft:#3a1a24;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3)}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0 16px calc(40px + env(safe-area-inset-bottom))}
-main{max-width:640px;margin:0 auto}
-header{display:flex;align-items:center;justify-content:space-between;padding:calc(18px + env(safe-area-inset-top)) 0 10px}
-h1{font-size:22px;margin:0}
-h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:26px 0 10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+a{color:var(--brand)}
+button{font:inherit;cursor:pointer}
+[hidden]{display:none!important}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:20;background:var(--nav);color:var(--nav-ink);padding-top:env(safe-area-inset-top)}
+.top-in{max-width:760px;margin:0 auto;padding:0 16px;height:56px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none;color:inherit}
+.logo{width:30px;height:30px;border-radius:9px;background:var(--brand);display:grid;place-items:center;flex:none}
+.logo svg{width:18px;height:18px;fill:#fff}
+.brand b{font-size:16px;font-weight:700;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ver{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.14);flex:none}
+.dot{width:9px;height:9px;border-radius:50%;background:#7b8296;margin-left:auto;flex:none}
+.dot.on{background:#3ddc84;box-shadow:0 0 0 3px rgba(61,220,132,.2)}
+.dot.err{background:#ff7a90}
+#bar{height:3px;background:transparent;overflow:hidden}
+#bar i{display:block;height:100%;width:40%;background:var(--brand);border-radius:3px;opacity:0;transform:translateX(-100%)}
+body.busy #bar i{opacity:1;animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+
+/* ---------- nav (bottom tab bar on phones, inline on wide screens) ---------- */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;justify-content:space-around;padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+nav a{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:var(--mute);
+  font-size:12px;font-weight:600;padding:6px 4px;border-radius:12px}
+nav a svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav a[aria-current=page]{color:var(--brand)}
+@media (min-width:720px){
+  nav{position:static;background:transparent;border:0;padding:0;justify-content:flex-start;gap:4px;margin-left:auto}
+  .dot{margin-left:12px}
+  nav a{flex:none;flex-direction:row;gap:8px;font-size:14px;color:rgba(255,255,255,.72);padding:8px 12px}
+  nav a[aria-current=page]{color:#fff;background:rgba(255,255,255,.12)}
+  body{padding-bottom:40px}
+}
+.top-in nav{display:none}
+@media (min-width:720px){.top-in nav{display:flex}body>nav{display:none}}
+
+/* ---------- layout ---------- */
+main{max-width:760px;margin:0 auto;padding:20px 16px}
+h2{font-size:20px;margin:0 0 4px}
+.lead{color:var(--mute);margin:0 0 16px;font-size:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.sp{justify-content:space-between}
-.name{font-weight:650}
-.sub{color:var(--mute);font-size:14px}
-.pill{font-size:12px;font-weight:650;border-radius:99px;padding:2px 9px;background:var(--chip)}
-.pill.active{color:var(--ok)}.pill.paused,.pill.done{color:var(--warn)}.pill.expired{color:var(--bad)}
-button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer;min-height:42px}
-button.pri{background:var(--acc);color:var(--accink);border-color:transparent}
-button.dng{color:var(--bad)}
-button:disabled{opacity:.5}
-button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
-input,select{font:inherit;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-height:44px}
-input[type=checkbox]{width:auto;min-height:0;margin-right:8px}
-.chk{display:flex;align-items:center;font-weight:500;margin:10px 0}
-.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.between{justify-content:space-between}
+.sub{color:var(--mute);font-size:13.5px}
+.pill{font-size:11.5px;font-weight:700;letter-spacing:.04em;border-radius:99px;padding:3px 10px;background:var(--chip);color:var(--mute);white-space:nowrap}
+.pill.active,.pill.on{background:var(--ok-soft);color:var(--ok)}
+.pill.paused,.pill.done,.pill.unknown{background:var(--warn-soft);color:var(--warn)}
+.pill.expired,.pill.off{background:var(--bad-soft);color:var(--bad)}
+
+/* ---------- buttons & form ---------- */
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:0 16px;min-height:44px;font-weight:650;
+  transition:transform .08s,background .15s,opacity .15s}
+.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.btn.dng{color:var(--bad)}
+.btn.sm{min-height:38px;padding:0 14px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:default}
+:is(button,input,select,a):focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+label{display:block;font-size:13.5px;font-weight:650;margin:14px 0 6px}
+input,select{font:inherit;width:100%;min-height:46px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+input[type=checkbox]{width:20px;min-height:0;height:20px;margin:0 10px 0 0;accent-color:var(--brand)}
 input[type=date]{min-width:0;-webkit-appearance:none;appearance:none}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.chips button{min-height:32px;padding:3px 10px;font-size:13px;background:var(--chip)}
-details.card>summary{cursor:pointer;font-weight:650;list-style:none}
-details.card>summary::-webkit-details-marker{display:none}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.chk{display:flex;align-items:center;font-weight:500;margin:12px 0}
 .hint{font-size:13px;color:var(--mute);margin-top:6px}
-#toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:608px;margin:0 auto;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;display:none;z-index:9}
-#toast a{color:inherit}
-.empty{text-align:center;color:var(--mute);padding:22px 10px}
-ol{padding-left:20px;margin:8px 0}
-code{background:var(--chip);padding:1px 5px;border-radius:5px;font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chips button{min-height:34px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--chip);color:var(--ink);font-size:13px;font-weight:600}
+.seg{display:inline-flex;background:var(--chip);border-radius:12px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--mute);min-height:38px;padding:0 14px;border-radius:9px;font-weight:650}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* ---------- watch cards ---------- */
+.watch{display:grid;grid-template-columns:52px 1fr;gap:14px}
+.poster{width:52px;height:68px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:.5px}
+.watch h3{margin:0;font-size:17px;line-height:1.25}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 6px}
+.tag{font-size:12.5px;font-weight:600;background:var(--chip);border-radius:8px;padding:2px 8px}
+.stats{font-size:13px;color:var(--mute)}
+.watch .row{margin-top:12px}
+.empty{text-align:center;padding:34px 18px}
+.empty svg{width:64px;height:64px;stroke:var(--mute);fill:none;stroke-width:1.5;margin-bottom:8px}
+.sched{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.sched b{display:block}
+
+/* ---------- activity card ---------- */
+.activity{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;z-index:30;
+  background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:14px 16px;
+  transform:translateY(16px);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .25s ease}
+.activity.show{transform:none;opacity:1;pointer-events:auto}
+@media (min-width:720px){.activity{bottom:24px}}
+.act-head{display:flex;align-items:center;gap:12px}
+.act-ic{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:50%}
+.spinner{width:22px;height:22px;border-radius:50%;border:3px solid var(--chip);border-top-color:var(--brand);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.act-ic.ok{background:var(--ok-soft);color:var(--ok)}.act-ic.bad{background:var(--bad-soft);color:var(--bad)}
+.act-ic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.act-t{font-weight:700;line-height:1.2}
+.act-x{margin-left:auto;border:0;background:transparent;color:var(--mute);font-size:20px;line-height:1;min-width:36px;min-height:36px;border-radius:10px}
+.steps{display:flex;list-style:none;margin:14px 0 2px;padding:0;gap:6px}
+.steps li{flex:1;font-size:11.5px;font-weight:650;color:var(--mute);text-align:center}
+.steps li::before{content:"";display:block;height:4px;border-radius:4px;background:var(--chip);margin-bottom:6px;transition:background .3s}
+.steps li.on::before{background:var(--brand)}
+.steps li.on{color:var(--ink)}
+.steps.fail li.on::before{background:var(--bad)}
+.steps.okay li.on::before{background:var(--ok)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+code{background:var(--chip);padding:1px 6px;border-radius:6px;font-size:13px}
+ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 </style>
 </head>
 <body>
-<main>
-<header>
-  <h1>🎬 Show Watcher</h1>
-  <button id="refresh" aria-label="Refresh">↻ Refresh</button>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#watch" aria-label="My Personal Movie Tracker">
+      <span class="logo"><svg viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 0 1 1 1v3a2.5 2.5 0 0 0 0 5v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a2.5 2.5 0 0 0 0-5V6a1 1 0 0 1 1-1zm5 3v8h2V8H9zm4 0v8h2V8h-2z"/></svg></span>
+      <b>My Personal Movie Tracker</b>
+    </a>
+    <span class="ver" id="ver"></span>
+    <span class="dot" id="dot" title="Not connected"></span>
+    <nav aria-label="Main" id="nav-top"></nav>
+  </div>
+  <div id="bar"><i></i></div>
 </header>
 
-<div id="app"></div>
+<main>
+  <!-- ======== Watching ======== -->
+  <section id="v-watch" hidden>
+    <div class="row between" style="margin-bottom:12px">
+      <div><h2>Watching</h2><p class="lead" id="wsub" style="margin:0"></p></div>
+      <button class="btn sm" id="refresh">↻ Refresh</button>
+    </div>
+    <div class="card sched" id="sched"></div>
+    <div id="watchList"></div>
+  </section>
 
-<h2>Settings</h2>
-<details class="card" id="settings">
-  <summary>GitHub connection</summary>
-  <label for="repo">Repository</label>
-  <input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false">
-  <label for="token">Access token</label>
-  <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
-  <div class="hint">Stays in this browser only. Create a <b>fine-grained</b> token for just this repository with <b>Actions: Read and write</b> and <b>Contents: Read-only</b>, and give it an expiry date.</div>
-  <div class="row" style="margin-top:12px">
-    <button class="pri" id="save">Save &amp; connect</button>
-    <button class="dng" id="forget">Forget token</button>
-  </div>
-</details>
+  <!-- ======== Add ======== -->
+  <section id="v-add" hidden>
+    <h2>Add a watch</h2>
+    <p class="lead">You'll get an alert the moment new show timings appear.</p>
+    <form class="card" id="addform" autocomplete="off">
+      <label for="movie" style="margin-top:0">Movie name</label>
+      <input id="movie" list="movies" required placeholder="Movie name, or a BookMyShow share link" autocapitalize="off">
+      <datalist id="movies"></datalist>
+
+      <label for="theatres">Theatre(s)</label>
+      <input id="theatres" required placeholder="Start typing a theatre…" autocapitalize="off" aria-controls="sug">
+      <div class="chips" id="sug"></div>
+      <div class="hint">Pick from theatres seen in earlier checks, or type any part of a theatre's name.</div>
+
+      <div class="two">
+        <div><label for="langs">Languages</label><input id="langs" value="hindi, english"></div>
+        <div><label for="fmt">Format</label><select id="fmt"><option value="">Any</option><option value="3d">3D only</option></select></div>
+      </div>
+      <div class="two">
+        <div><label for="from">From date</label><input id="from" type="date"></div>
+        <div><label for="to">To date</label><input id="to" type="date"></div>
+      </div>
+      <div class="hint">Leave dates empty to start from the release date. 3D shows are always listed first.</div>
+
+      <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
+      <input id="codes" placeholder="ET00523251" autocapitalize="characters">
+
+      <label class="chk"><input type="checkbox" id="notify"> Alert for shows that already exist on the first check</label>
+      <label class="chk" style="margin-top:0"><input type="checkbox" id="once"> Stop after the first alert</label>
+
+      <div class="row" style="margin-top:8px">
+        <button class="btn pri" type="submit" data-idle>Add watch</button>
+        <button class="btn" type="button" id="lookup" data-idle>Just look up the code</button>
+      </div>
+      <div class="hint">Names are matched loosely, so partial names and small typos are fine. For a <b>coming-soon</b> movie, paste its share link from the BookMyShow app instead of the name. A lookup result arrives as a notification and keeps what you typed.</div>
+    </form>
+  </section>
+
+  <!-- ======== Account ======== -->
+  <section id="v-account" hidden>
+    <h2>Account &amp; settings</h2>
+    <p class="lead" id="acctsub"></p>
+
+    <div class="card" id="howto" hidden>
+      <b>Connect to GitHub</b>
+      <ol class="how sub">
+        <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token.</li>
+        <li>Repository access: only <code>bms-watcher</code>.</li>
+        <li>Permissions: <b>Actions: Read and write</b> and <b>Contents: Read-only</b>. Set an expiry.</li>
+        <li>Paste the token below and tap Save &amp; connect.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <div class="row between"><b>GitHub connection</b><span class="pill" id="connpill">NOT CONNECTED</span></div>
+      <label for="repo">Repository</label>
+      <input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label for="token" id="tokenlabel">Access token</label>
+      <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
+      <div class="hint">Stored only in this browser. Never shared with anyone but GitHub.</div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn pri" id="save">Save &amp; connect</button>
+        <button class="btn dng" id="forget" hidden>Sign out</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <b>Appearance</b>
+      <div style="margin-top:10px" class="seg" role="group" aria-label="Theme">
+        <button data-theme="auto">Auto</button><button data-theme="light">Light</button><button data-theme="dark">Dark</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <b>About</b>
+      <p class="sub" style="margin:6px 0 0" id="about"></p>
+    </div>
+  </section>
 </main>
-<div id="toast" role="status" aria-live="polite"></div>
+
+<nav aria-label="Main" id="nav-bottom"></nav>
+
+<div class="activity" id="activity" role="status" aria-live="polite">
+  <div class="act-head">
+    <div id="actIc"></div>
+    <div><div class="act-t" id="actT"></div><div class="sub" id="actS"></div></div>
+    <button class="act-x" id="actX" aria-label="Dismiss">×</button>
+  </div>
+  <ol class="steps" id="steps"><li data-s="sent">Sent</li><li data-s="queued">Queued</li><li data-s="running">Running</li><li data-s="done">Done</li></ol>
+</div>
 
 <script>
 "use strict";
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const VERSION = "1.1.0";
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
@@ -82,16 +267,25 @@ const store = {
 };
 const API = window.BMS_API || "https://api.github.com";
 const cfg = { repo: store.get("bmsw.repo", "HarshJha995/bms-watcher"), token: store.get("bmsw.token", ""), ref: "main" };
-let data = { watches: [], state: {}, catalog: [], loaded: false };
-const shortName = (n) => String(n).split(",")[0].trim();     // theatre keyword; commas separate keywords
+const data = { watches: [], state: {}, catalog: [], theatres: [], loaded: false, error: null, at: null };
 let busy = false;
 
-// ---------- GitHub ----------
+const ICONS = {
+  watch: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  add: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+  account: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  cross: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  ticket: '<svg viewBox="0 0 24 24"><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4V7z"/><path d="M14 7v10" stroke-dasharray="2 2"/></svg>',
+};
+const VIEWS = [["watch", "Watching"], ["add", "Add watch"], ["account", "Account"]];
+
+// ---------- GitHub API ----------
 async function gh(path, opts = {}) {
   const r = await fetch(API + path, { ...opts, cache: "no-store", headers: {
     Authorization: "Bearer " + cfg.token, Accept: opts.accept || "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28", ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
-  if (r.status === 401) throw new Error("GitHub rejected the token (expired or wrong).");
+  if (r.status === 401) throw new Error("GitHub rejected the token (expired or wrong). Create a new one in Account.");
   return r;
 }
 async function readJson(file, fallback) {
@@ -101,27 +295,29 @@ async function readJson(file, fallback) {
   return JSON.parse(await r.text());
 }
 async function load() {
-  if (!cfg.token) return render();
+  if (!cfg.token) { renderAll(); return; }
   try {
     const [config, state, cat] = await Promise.all([readJson("watches.json", { watches: [] }), readJson("state.json", {}), readJson("catalog.json", {})]);
     data.watches = config.watches || [];
     data.state = state || {};
-    data.catalog = Object.values(cat || {}).flatMap((c) => (c.movies || []).map((m) => m.title));
-    data.loaded = true;
-    data.error = null;
+    data.catalog = [...new Set(Object.values(cat || {}).flatMap((c) => (c.movies || []).map((m) => m.title)))];
+    const short = (n) => String(n).split(",")[0].trim();          // commas separate keywords in the add form
+    data.theatres = [...new Set([...Object.values(data.state.venues || {}).map(short), ...data.watches.flatMap((w) => w.theatres || [])])]
+      .sort((a, b) => a.localeCompare(b))
+      .filter((t, _, all) => !all.some((u) => u !== t && u.toLowerCase().includes(t.toLowerCase())));
+    data.loaded = true; data.error = null; data.at = new Date();
   } catch (e) { data.error = e.message; }
-  render();
+  renderAll();
 }
 
-// ---------- scheduling logic (mirrors watcher.py) ----------
+// ---------- schedule logic (mirrors watcher.py) ----------
 const IST = "Asia/Kolkata";
 const todayIST = () => new Intl.DateTimeFormat("en-CA", { timeZone: IST }).format(new Date());
 function watchStatus(w, ws) {
   if (w.enabled === false) return "paused";
   if (ws && ws.done) return "done";
   const exp = w.expires || (w.dates && w.dates.to);
-  if (exp && exp < todayIST()) return "expired";
-  return "active";
+  return exp && exp < todayIST() ? "expired" : "active";
 }
 function interval(w) {
   const t = (w.dates && w.dates.from) || w.release_date;
@@ -137,160 +333,187 @@ function ago(iso) {
   return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago";
 }
 const fmtDate = (d) => d ? new Date(d + "T00:00:00+05:30").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: IST }) : "";
-
-// ---------- actions ----------
-function toast(html, ms = 0) {
-  const t = $("#toast"); t.innerHTML = html; t.style.display = "block";
-  clearTimeout(toast.h); if (ms) toast.h = setTimeout(() => (t.style.display = "none"), ms);
+function poster(title) {
+  let h = 0; for (const c of title) h = (h * 31 + c.charCodeAt(0)) % 360;
+  const ini = title.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join("") || "?";
+  return `<div class="poster" style="background:linear-gradient(145deg,hsl(${h} 62% 52%),hsl(${(h + 45) % 360} 62% 40%))" aria-hidden="true">${esc(ini)}</div>`;
 }
+
+// ---------- activity card (progress) ----------
+let actTimer;
+function activity(title, phase, sub = "", link = "") {
+  const el = $("#activity");
+  clearTimeout(actTimer);
+  const order = ["sent", "queued", "running", "done"];
+  const idx = phase === "failed" ? order.indexOf(activity.last || "running") : order.indexOf(phase);
+  if (phase !== "failed") activity.last = phase;
+  $("#steps").className = "steps" + (phase === "done" ? " okay" : phase === "failed" ? " fail" : "");
+  [...$("#steps").children].forEach((li, i) => li.classList.toggle("on", i <= idx));
+  $("#actT").textContent = phase === "done" ? title + " — done" : phase === "failed" ? title + " — failed" : title;
+  $("#actS").innerHTML = (sub ? esc(sub) : "") + (link ? ` <a href="${esc(link)}" target="_blank" rel="noopener">View the log</a>` : "");
+  $("#actIc").innerHTML = phase === "done" ? `<div class="act-ic ok">${ICONS.check}</div>` : phase === "failed" ? `<div class="act-ic bad">${ICONS.cross}</div>` : '<div class="spinner"></div>';
+  el.classList.add("show");
+  if (phase === "done") actTimer = setTimeout(hideActivity, 3500);
+}
+const hideActivity = () => $("#activity").classList.remove("show");
+
+function setBusy(b) {
+  busy = b;
+  document.body.classList.toggle("busy", b);
+  document.querySelectorAll("[data-idle]").forEach((x) => (x.disabled = b));
+}
+
 async function dispatch(workflow, inputs, label) {
-  if (busy) return;
-  busy = true; render();
+  if (busy) return false;
+  setBusy(true);
   const started = Date.now();
+  let ok = false;
   try {
-    toast(`⏳ ${esc(label)}…`);
+    activity(label, "sent", "Sending to GitHub…");
     const r = await gh(`/repos/${cfg.repo}/actions/workflows/${workflow}/dispatches`, { method: "POST", body: JSON.stringify({ ref: cfg.ref, inputs }) });
     if (r.status !== 204) {
       const msg = (await r.json().catch(() => ({}))).message || "HTTP " + r.status;
-      throw new Error(msg + (r.status === 403 || r.status === 404 ? " (token needs Actions: Read and write)" : ""));
+      throw new Error(msg + (r.status === 403 || r.status === 404 ? " — the token needs Actions: Read and write" : ""));
     }
     let run = null;
-    for (let i = 0; i < 60 && !(run && run.status === "completed"); i++) {
+    for (let i = 0; i < 70; i++) {
       await new Promise((res) => setTimeout(res, i < 3 ? 2500 : 4000));
       const rr = await gh(`/repos/${cfg.repo}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=5`);
-      const list = (await rr.json()).workflow_runs || [];
-      run = list.find((x) => new Date(x.created_at).getTime() >= started - 15000) || null;
-      if (run) toast(`⏳ ${esc(label)}… ${esc(run.status.replace("_", " "))}`);
+      run = ((await rr.json()).workflow_runs || []).find((x) => new Date(x.created_at).getTime() >= started - 15000) || null;
+      if (!run) { activity(label, "sent", "Waiting for GitHub to pick it up…"); continue; }
+      if (run.status === "completed") break;
+      activity(label, run.status === "in_progress" ? "running" : "queued", run.status === "in_progress" ? "Running now…" : "Waiting for a runner…");
     }
-    if (!run) throw new Error("The run didn't start. Check the Actions tab.");
-    if (run.status !== "completed") { toast(`Still running — <a href="${esc(run.html_url)}" target="_blank" rel="noopener">view the run</a>`, 8000); }
-    else if (run.conclusion === "success") toast(`✅ ${esc(label)} done`, 5000);
-    else toast(`❌ ${esc(label)} failed — <a href="${esc(run.html_url)}" target="_blank" rel="noopener">see the log</a>`, 12000);
-  } catch (e) { toast("❌ " + esc(e.message), 9000); }
-  busy = false;
+    if (!run) throw new Error("The run didn't start. Check the Actions tab on GitHub.");
+    if (run.status !== "completed") activity(label, "running", "Still going in the background.", run.html_url);
+    else if (run.conclusion === "success") { activity(label, "done", "All set."); ok = true; }
+    else activity(label, "failed", "Something went wrong.", run.html_url);
+  } catch (e) { activity(label, "failed", e.message); }
+  setBusy(false);
   await load();
+  return ok;
 }
 const control = (command, inputs = {}, label) => dispatch("control.yaml", { command, ...inputs }, label || command);
 
 // ---------- rendering ----------
-function render() {
-  const app = $("#app");
-  if (!cfg.token) $("#settings").open = true;
-  if (!cfg.token) {
-    app.innerHTML = `<div class="card"><div class="name">Connect to GitHub</div><ol class="sub">
-      <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate</li>
-      <li>Repository access: only <code>${esc(cfg.repo)}</code></li>
-      <li>Permissions: <b>Actions: Read and write</b>, <b>Contents: Read-only</b></li>
-      <li>Paste it under Settings below and tap Save &amp; connect.</li></ol></div>`;
-    return;
-  }
-  if (data.error) { app.innerHTML = `<div class="card"><div class="name">Couldn't load</div><div class="sub">${esc(data.error)}</div></div>`; return; }
-  if (!data.loaded) { app.innerHTML = `<div class="empty">Loading…</div>`; return; }
-
+function renderNav() {
+  const html = VIEWS.map(([id, name]) => `<a href="#${id}" data-v="${id}">${ICONS[id]}<span>${name}</span></a>`).join("");
+  $("#nav-top").innerHTML = html; $("#nav-bottom").innerHTML = html;
+}
+function showView() {
+  let v = (location.hash || "#watch").slice(1);
+  if (!VIEWS.some(([id]) => id === v)) v = "watch";
+  if (!cfg.token) v = "account";
+  for (const [id] of VIEWS) $("#v-" + id).hidden = id !== v;
+  document.querySelectorAll("nav a").forEach((a) => (a.getAttribute("href") === "#" + v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
+  window.scrollTo(0, 0);
+}
+function renderWatches() {
   const dis = busy ? "disabled" : "";
-  const cards = data.watches.map((w, i) => {
+  if (data.error) { $("#wsub").textContent = ""; $("#sched").hidden = true; $("#watchList").innerHTML = `<div class="card"><b>Couldn't load</b><p class="sub">${esc(data.error)}</p></div>`; return; }
+  if (!data.loaded) { $("#sched").hidden = true; $("#watchList").innerHTML = '<div class="empty sub">Loading…</div>'; return; }
+  const active = data.watches.filter((w) => watchStatus(w, (data.state.watches || {})[w.name]) === "active").length;
+  $("#wsub").textContent = `${active} active · ${data.watches.length - active} inactive · updated ${data.at ? data.at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}`;
+  const cron = data.state.cron_enabled;
+  $("#sched").hidden = false;
+  $("#sched").innerHTML = `<div><b>Scheduler</b><span class="sub">${cron === true ? "Checking automatically" : cron === false ? "Paused — nothing is being checked" : "State unknown"}</span></div>
+    <div class="row"><span class="pill ${cron === true ? "on" : cron === false ? "off" : "unknown"}">${cron === true ? "ON" : cron === false ? "OFF" : "UNKNOWN"}</span>
+    <button class="btn sm" data-t="${cron === true ? "cron_off" : "cron_on"}" data-idle ${dis}>Turn ${cron === true ? "off" : "on"}</button>
+    <button class="btn sm" data-t="check" data-idle ${dis}>Check now</button>
+    <button class="btn sm" data-t="test_alert" data-idle ${dis}>Test alert</button></div>`;
+  $("#watchList").innerHTML = data.watches.length ? data.watches.map((w, i) => {
     const ws = (data.state.watches || {})[w.name] || {};
     const st = watchStatus(w, ws);
-    const when = w.dates && w.dates.from ? `${fmtDate(w.dates.from)}${w.dates.to && w.dates.to !== w.dates.from ? " – " + fmtDate(w.dates.to) : ""}` : (w.release_date ? "releases " + fmtDate(w.release_date) : "next 14 days");
-    const bits = [(w.theatres || []).join(", ") || "any theatre", when, (w.languages || []).join("/"), (w.formats || []).join("/").toUpperCase(), w.once ? "alert once" : ""].filter(Boolean);
-    return `<div class="card"><div class="row sp"><span class="name">${esc(w.movie || w.name)}</span><span class="pill ${st}">${st.toUpperCase()}</span></div>
-      <div class="sub">${esc(bits.join(" · "))}</div>
-      <div class="sub">${st === "active" ? `Checks every ${interval(w)} min · last ${esc(ago(ws.last_check))}` : ""}${ws.last_alert ? ` · last alert ${esc(ago(ws.last_alert))}` : ""} · ${(ws.seen || []).length} shows known</div>
-      <div class="row" style="margin-top:10px">
-        ${st === "active" ? `<button data-a="pause" data-i="${i}" ${dis}>Pause</button>` : `<button data-a="resume" data-i="${i}" ${dis}>Resume</button>`}
-        <button class="dng" data-a="remove" data-i="${i}" ${dis}>Remove</button></div></div>`;
-  }).join("");
-
-  const cron = data.state.cron_enabled;
-  data.theatres = [...new Set([...Object.values(data.state.venues || {}).map(shortName), ...data.watches.flatMap((w) => w.theatres || [])])]
-    .sort((a, b) => a.localeCompare(b));
-  data.theatres = data.theatres.filter((t, _, all) => !all.some((u) => u !== t && u.toLowerCase().includes(t.toLowerCase())));   // hide keywords covered by a full name
-  app.innerHTML = `
-    <h2>Watching (${data.watches.length})</h2>
-    ${cards || `<div class="empty card">Nothing is being watched yet. Add a watch below.</div>`}
-
-    <h2>Add a watch</h2>
-    <details class="card" id="addbox"><summary>＋ New watch</summary>
-      <form id="addform" autocomplete="off">
-        <label for="movie">Movie name</label>
-        <input id="movie" list="movies" required placeholder="Paste or type from the BookMyShow app" autocapitalize="off">
-        <datalist id="movies">${[...new Set(data.catalog)].map((t) => `<option value="${esc(t)}">`).join("")}</datalist>
-        <label for="theatres">Theatre(s)</label>
-        <input id="theatres" required placeholder="Start typing a theatre…" autocapitalize="off" aria-controls="sug">
-        <div class="chips" id="sug"></div>
-        <div class="hint">Pick from theatres seen in earlier checks, or type any part of a theatre's name. Add several one after another.</div>
-        <div class="two"><div><label for="langs">Languages</label><input id="langs" value="hindi, english"></div>
-          <div><label for="fmt">Format</label><select id="fmt"><option value="">Any</option><option value="3d">3D only</option></select></div></div>
-        <div class="two"><div><label for="from">From date</label><input id="from" type="date"></div>
-          <div><label for="to">To date</label><input id="to" type="date"></div></div>
-        <div class="hint">Leave dates empty to start from the release date. 3D shows are always listed first.</div>
-        <label for="codes">Event code(s) <span class="sub">(optional — for a special version like Dolby 3D)</span></label>
-        <input id="codes" placeholder="ET00523251" autocapitalize="characters">
-        <label class="chk"><input type="checkbox" id="notify"> Alert for shows that already exist on the first check</label>
-        <label class="chk"><input type="checkbox" id="once"> Stop after the first alert</label>
-        <div class="row"><button class="pri" type="submit" ${dis}>Add watch</button>
-          <button type="button" id="lookup" ${dis}>Just look up the code</button></div>
-        <div class="hint">The name is matched loosely, so partial names and small typos are fine. The result also arrives as a notification.</div>
-      </form></details>
-
-    <h2>Tools</h2>
-    <div class="card">
-      <div class="row sp"><span>Scheduler (cron job)</span><span class="pill ${cron === true ? "active" : "paused"}">${cron === true ? "ON" : cron === false ? "OFF" : "UNKNOWN"}</span></div>
-      <div class="row" style="margin-top:10px">
-        <button data-t="cron_on" ${dis}>Turn on</button><button data-t="cron_off" ${dis}>Turn off</button>
-        <button data-t="check" ${dis}>Check now</button><button data-t="test_alert" ${dis}>Test alert</button>
-        <button data-t="status" ${dis}>Send status</button></div>
-    </div>`;
+    const when = w.dates && w.dates.from ? `${fmtDate(w.dates.from)}${w.dates.to && w.dates.to !== w.dates.from ? " – " + fmtDate(w.dates.to) : ""}` : (w.release_date ? "Releases " + fmtDate(w.release_date) : "Next 14 days");
+    const tags = [...(w.theatres || ["Any theatre"]), when, ...(w.languages || []).map((x) => x[0].toUpperCase() + x.slice(1)), ...(w.formats || []).map((x) => x.toUpperCase()), w.once ? "Alert once" : ""].filter(Boolean);
+    const title = w.movie || w.name;
+    return `<article class="card watch">${poster(title)}<div>
+      <div class="row between" style="flex-wrap:nowrap;align-items:flex-start"><h3>${esc(title)}</h3><span class="pill ${st}">${st.toUpperCase()}</span></div>
+      <div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      <div class="stats">${st === "active" ? `Every ${interval(w)} min · checked ${esc(ago(ws.last_check))}` : "Not checking"} · ${(ws.seen || []).length} shows known${ws.last_alert ? ` · alerted ${esc(ago(ws.last_alert))}` : ""}</div>
+      <div class="row">${st === "active" ? `<button class="btn sm" data-a="pause" data-i="${i}" data-idle ${dis}>Pause</button>` : `<button class="btn sm" data-a="resume" data-i="${i}" data-idle ${dis}>Resume</button>`}
+        <button class="btn sm dng" data-a="remove" data-i="${i}" data-idle ${dis}>Remove</button></div></div></article>`;
+  }).join("") : `<div class="card empty">${ICONS.ticket.replace("<svg", "<svg")}<div><b>Nothing is being watched yet</b></div><p class="sub">Add a movie and a theatre and we'll alert you when shows open.</p><a class="btn pri" href="#add" style="display:inline-grid;place-items:center;text-decoration:none">Add a watch</a></div>`;
 }
+function renderAdd() {
+  $("#movies").innerHTML = data.catalog.map((t) => `<option value="${esc(t)}">`).join("");
+  suggest();
+}
+function renderAccount() {
+  const on = !!cfg.token, good = on && data.loaded && !data.error;
+  $("#howto").hidden = on;
+  $("#forget").hidden = !on;
+  $("#acctsub").textContent = on ? "Manage your connection and preferences." : "Connect once and this page can manage your watches.";
+  $("#connpill").textContent = good ? "CONNECTED" : on ? (data.error ? "PROBLEM" : "CONNECTING…") : "NOT CONNECTED";
+  $("#connpill").className = "pill " + (good ? "on" : on && data.error ? "off" : "unknown");
+  $("#tokenlabel").textContent = on ? "Access token (saved on this device — paste a new one to replace)" : "Access token";
+  const dot = $("#dot"); dot.className = "dot" + (good ? " on" : data.error ? " err" : ""); dot.title = good ? "Connected" : data.error ? data.error : "Not connected";
+  const t = store.get("bmsw.theme", "auto");
+  document.querySelectorAll("[data-theme]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.theme === t)));
+  $("#about").textContent = `My Personal Movie Tracker v${VERSION}. Watches ${cfg.repo} through GitHub Actions; alerts arrive via ntfy.`;
+}
+function renderAll() { renderWatches(); renderAdd(); renderAccount(); showView(); }
 
-// ---------- events ----------
-document.addEventListener("click", (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  if (b.dataset.a) {
-    const w = data.watches[+b.dataset.i];
-    if (b.dataset.a === "remove" && !confirm(`Remove “${w.movie || w.name}”?`)) return;
-    control(b.dataset.a, { name: w.name }, `${b.dataset.a} ${w.movie || w.name}`);
-  } else if (b.dataset.t === "check") dispatch("watcher.yaml", { force: "true" }, "Checking now");
-  else if (b.dataset.t) control(b.dataset.t, {}, b.textContent);
-  else if (b.dataset.th) {
-    const i = $("#theatres"), parts = i.value.split(",").map((x) => x.trim()).filter(Boolean);
-    if (i.dataset.typing) parts.pop();                      // replace the half-typed segment
-    i.value = [...parts, b.dataset.th].join(", ") + ", "; i.dataset.typing = ""; i.focus(); suggest();
-  }
-  else if (b.id === "lookup") {
-    const m = $("#movie").value.trim(); if (!m) return $("#movie").focus();
-    control("lookup", { movie: m }, "Looking up");
-  }
-});
-document.addEventListener("submit", (e) => {
-  if (e.target.id !== "addform") return;
-  e.preventDefault();
-  const v = (id) => $("#" + id).value.trim().replace(/^,+|,+$/g, "").trim();
-  control("add", {
-    movie: v("movie"), theatres: v("theatres"), languages: v("langs") || "any", formats: v("fmt"),
-    from_date: v("from"), to_date: v("to"), event_codes: v("codes"),
-    notify_existing: String($("#notify").checked), once: String($("#once").checked),
-  }, "Adding watch");
-});
+// ---------- theatre autocomplete ----------
 function suggest() {
   const i = $("#theatres"), box = $("#sug"); if (!i || !box) return;
   const segs = i.value.split(","), last = segs[segs.length - 1].trim().toLowerCase();
   const chosen = segs.slice(0, -1).map((x) => x.trim().toLowerCase());
   i.dataset.typing = last ? "1" : "";
-  const list = (data.theatres || []).filter((t) => !chosen.includes(t.toLowerCase()) && t.toLowerCase().includes(last)).slice(0, 8);
-  box.innerHTML = list.map((t) => `<button type="button" data-th="${esc(t)}">${esc(t)}</button>`).join("");
+  box.innerHTML = data.theatres.filter((t) => !chosen.includes(t.toLowerCase()) && t.toLowerCase().includes(last)).slice(0, 8)
+    .map((t) => `<button type="button" data-th="${esc(t)}">${esc(t)}</button>`).join("");
 }
+
+// ---------- events ----------
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.a) {
+    const w = data.watches[+b.dataset.i], name = w.movie || w.name;
+    if (b.dataset.a === "remove" && !confirm(`Remove “${name}”?`)) return;
+    control(b.dataset.a, { name: w.name }, `${b.dataset.a[0].toUpperCase() + b.dataset.a.slice(1)} ${name}`);
+  } else if (b.dataset.t === "check") dispatch("watcher.yaml", { force: "true" }, "Checking for new shows");
+  else if (b.dataset.t) control(b.dataset.t, {}, { cron_on: "Turning scheduler on", cron_off: "Turning scheduler off", test_alert: "Sending a test alert" }[b.dataset.t]);
+  else if (b.dataset.th) {
+    const i = $("#theatres"), parts = i.value.split(",").map((x) => x.trim()).filter(Boolean);
+    if (i.dataset.typing) parts.pop();
+    i.value = [...parts, b.dataset.th].join(", ") + ", "; i.dataset.typing = ""; i.focus(); suggest();
+  } else if (b.id === "lookup") {
+    const m = $("#movie").value.trim(); if (!m) return $("#movie").focus();
+    control("lookup", { movie: m }, "Looking up “" + m + "”");          // the form is left exactly as typed
+  } else if (b.dataset.theme) { store.set("bmsw.theme", b.dataset.theme); applyTheme(); renderAccount(); }
+  else if (b.id === "actX") hideActivity();
+});
+$("#addform").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const v = (id) => $("#" + id).value.trim().replace(/^,+|,+$/g, "").trim();
+  const ok = await control("add", {
+    movie: v("movie"), theatres: v("theatres"), languages: v("langs") || "any", formats: v("fmt"),
+    from_date: v("from"), to_date: v("to"), event_codes: v("codes"),
+    notify_existing: String($("#notify").checked), once: String($("#once").checked),
+  }, "Adding “" + v("movie") + "”");
+  if (ok) { $("#addform").reset(); $("#langs").value = "hindi, english"; suggest(); location.hash = "#watch"; }   // clear only after success
+});
 document.addEventListener("input", (e) => { if (e.target.id === "theatres") suggest(); });
 document.addEventListener("focusin", (e) => { if (e.target.id === "theatres") suggest(); });
 $("#refresh").onclick = () => load();
-$("#save").onclick = () => {
-  cfg.repo = $("#repo").value.trim() || cfg.repo; cfg.token = $("#token").value.trim() || cfg.token;
-  store.set("bmsw.repo", cfg.repo); store.set("bmsw.token", cfg.token); $("#token").value = ""; load();
+$("#save").onclick = async () => {
+  cfg.repo = $("#repo").value.trim() || cfg.repo;
+  const t = $("#token").value.trim();
+  if (t) cfg.token = t;
+  store.set("bmsw.repo", cfg.repo); store.set("bmsw.token", cfg.token); $("#token").value = "";
+  data.loaded = false; data.error = null;
+  if (cfg.token) location.hash = "#watch";
+  await load();
 };
-$("#forget").onclick = () => { store.del("bmsw.token"); cfg.token = ""; data.loaded = false; render(); };
+$("#forget").onclick = () => { store.del("bmsw.token"); cfg.token = ""; Object.assign(data, { loaded: false, error: null, watches: [], state: {} }); renderAll(); };
+window.addEventListener("hashchange", showView);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !busy && cfg.token) load(); });
+function applyTheme() { const t = store.get("bmsw.theme", "auto"); if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
+
+applyTheme(); renderNav();
+$("#ver").textContent = "v" + VERSION;
 $("#repo").value = cfg.repo;
-document.addEventListener("visibilitychange", () => { if (!document.hidden && !busy) load(); });
-load();
+renderAll(); load();
 </script>
 </body>
 </html>
