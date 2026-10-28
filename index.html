@@ -89,8 +89,23 @@ h2{font-size:20px;margin:0 0 4px}
 :is(button,input,select,a):focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 label{display:block;font-size:13.5px;font-weight:650;margin:14px 0 6px}
 input,select{font:inherit;width:100%;min-height:46px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
-input[type=checkbox]{width:20px;min-height:0;height:20px;margin:0 10px 0 0;accent-color:var(--brand)}
-input[type=date]{min-width:0;-webkit-appearance:none;appearance:none}
+input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:22px;height:22px;min-height:0;padding:0;margin:0 12px 0 0;border-radius:7px;
+  border:1.5px solid var(--mute);background:var(--bg);display:inline-grid;place-content:center;cursor:pointer}
+input[type=checkbox]:checked{background:var(--brand);border-color:var(--brand)}
+input[type=checkbox]:checked::after{content:"";width:6px;height:11px;border:solid var(--brand-ink);border-width:0 2.5px 2.5px 0;transform:translateY(-1px) rotate(45deg)}
+input[type=date]{min-width:0;height:46px;display:block;-webkit-appearance:none;appearance:none;line-height:1.2}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+input[type=date]:not(:focus):invalid::before,input[type=date]:not([value]):not(:focus)::before{color:var(--mute)}
+select{-webkit-appearance:none;appearance:none;padding-right:36px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);
+  background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat}
+.ms{position:relative}
+.ms-btn{width:100%;min-height:46px;text-align:left;padding:10px 36px 10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:400;
+  background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);
+  background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-panel{position:absolute;z-index:15;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:6px}
+.ms-panel label{display:flex;align-items:center;margin:0;padding:10px 10px;border-radius:10px;font-size:15px;font-weight:550;cursor:pointer}
+.ms-panel label:hover{background:var(--chip)}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .chk{display:flex;align-items:center;font-weight:500;margin:12px 0}
 .hint{font-size:13px;color:var(--mute);margin-top:6px}
@@ -119,7 +134,9 @@ input[type=date]{min-width:0;-webkit-appearance:none;appearance:none}
   transform:translateY(16px);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .25s ease}
 .activity.show{transform:none;opacity:1;pointer-events:auto}
 @media (min-width:720px){.activity{bottom:24px}}
-.act-head{display:flex;align-items:center;gap:12px}
+.act-head{display:flex;align-items:center;gap:12px;min-width:0}
+.act-head>div:nth-child(2){flex:1;min-width:0}
+.act-t,.act-head .sub{overflow-wrap:anywhere}
 .act-ic{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:50%}
 .spinner{width:22px;height:22px;border-radius:50%;border:3px solid var(--chip);border-top-color:var(--brand);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -179,14 +196,25 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <div class="hint">Pick from theatres seen in earlier checks, or type any part of a theatre's name.</div>
 
       <div class="two">
-        <div><label for="langs">Languages</label><input id="langs" value="hindi, english"></div>
-        <div><label for="fmt">Format</label><select id="fmt"><option value="">Any</option><option value="3d">3D only</option></select></div>
+        <div><label id="langlabel">Languages</label>
+          <div class="ms" id="langs">
+            <button type="button" class="ms-btn" id="langbtn" aria-haspopup="true" aria-expanded="false" aria-labelledby="langlabel langbtn"></button>
+            <div class="ms-panel" id="langpanel" hidden>
+              <label><input type="checkbox" value="hindi" checked> Hindi</label>
+              <label><input type="checkbox" value="english" checked> English</label>
+              <label><input type="checkbox" value="telugu"> Telugu</label>
+              <label><input type="checkbox" value="tamil"> Tamil</label>
+              <label><input type="checkbox" value="kannada"> Kannada</label>
+              <label><input type="checkbox" value="malayalam"> Malayalam</label>
+            </div>
+          </div></div>
+        <div><label for="fmt">Format</label><select id="fmt"><option value="">Any</option><option value="3d">3D only</option><option value="2d">2D only</option></select></div>
       </div>
       <div class="two">
         <div><label for="from">From date</label><input id="from" type="date"></div>
         <div><label for="to">To date</label><input id="to" type="date"></div>
       </div>
-      <div class="hint">Leave dates empty to start from the release date. 3D shows are always listed first.</div>
+      <div class="hint">Leave dates empty to watch the next 31 days (or from the release date when it is known). Pick one date, or a range.</div>
 
       <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
       <input id="codes" placeholder="ET00523251" autocapitalize="characters">
@@ -424,13 +452,14 @@ function renderWatches() {
   $("#watchList").innerHTML = data.watches.length ? data.watches.map((w, i) => {
     const ws = (data.state.watches || {})[w.name] || {};
     const st = watchStatus(w, ws);
-    const when = w.dates && w.dates.from ? `${fmtDate(w.dates.from)}${w.dates.to && w.dates.to !== w.dates.from ? " – " + fmtDate(w.dates.to) : ""}` : (w.release_date ? "Releases " + fmtDate(w.release_date) : "Next 14 days");
+    const when = w.dates && w.dates.from ? `Dates: ${fmtDate(w.dates.from)}${w.dates.to && w.dates.to !== w.dates.from ? " – " + fmtDate(w.dates.to) : ""}`
+      : w.release_date ? `Dates: from release, ${fmtDate(w.release_date)}` : "Dates: next 31 days";
     const tags = [...(w.theatres || ["Any theatre"]), when, ...(w.languages || []).map((x) => x[0].toUpperCase() + x.slice(1)), ...(w.formats || []).map((x) => x.toUpperCase()), w.once ? "Alert once" : ""].filter(Boolean);
     const title = w.movie || w.name;
     return `<article class="card watch">${poster(title)}<div>
       <div class="row between" style="flex-wrap:nowrap;align-items:flex-start"><h3>${esc(title)}</h3><span class="pill ${st}">${st.toUpperCase()}</span></div>
       <div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
-      <div class="stats">${st === "active" ? `Every ${interval(w)} min · checked ${esc(ago(ws.last_check))}` : "Not checking"} · ${(ws.seen || []).length} shows known${ws.last_alert ? ` · alerted ${esc(ago(ws.last_alert))}` : ""}</div>
+      <div class="stats">${st === "active" ? `Checks every ${interval(w)} min · last checked ${esc(ago(ws.last_check))}` : "Not checking"} · ${(ws.seen || []).length} shows known${ws.last_alert ? ` · alerted ${esc(ago(ws.last_alert))}` : ""}</div>
       <div class="row">${st === "active" ? `<button class="btn sm" data-a="pause" data-i="${i}" data-idle ${dis}>Pause</button>` : `<button class="btn sm" data-a="resume" data-i="${i}" data-idle ${dis}>Resume</button>`}
         <button class="btn sm dng" data-a="remove" data-i="${i}" data-idle ${dis}>Remove</button></div></div></article>`;
   }).join("") : `<div class="card empty">${ICONS.ticket.replace("<svg", "<svg")}<div><b>Nothing is being watched yet</b></div><p class="sub">Add a movie and a theatre and we'll alert you when shows open.</p><a class="btn pri" href="#add" style="display:inline-grid;place-items:center;text-decoration:none">Add a watch</a></div>`;
@@ -453,6 +482,19 @@ function renderAccount() {
   $("#about").textContent = `My Personal Movie Tracker v${VERSION}. Watches ${cfg.repo} through GitHub Actions; alerts arrive via ntfy.`;
 }
 function renderAll() { renderWatches(); renderAdd(); renderAccount(); showView(); }
+
+// ---------- language multi-select ----------
+const langBoxes = () => [...document.querySelectorAll("#langpanel input")];
+const getLangs = () => langBoxes().filter((c) => c.checked).map((c) => c.value);
+function langSummary() {
+  const on = langBoxes().filter((c) => c.checked).map((c) => c.parentElement.textContent.trim());
+  $("#langbtn").textContent = on.length ? on.join(", ") : "Any language";
+}
+function toggleLangs(open) {
+  const p = $("#langpanel"); p.hidden = open === undefined ? !p.hidden : !open;
+  $("#langbtn").setAttribute("aria-expanded", String(!p.hidden));
+}
+const shortLabel = (m) => /https?:\/\//.test(m) ? "movie link" : m.length > 36 ? m.slice(0, 34) + "…" : m;
 
 // ---------- theatre autocomplete ----------
 function suggest() {
@@ -479,21 +521,25 @@ document.addEventListener("click", async (e) => {
     i.value = [...parts, b.dataset.th].join(", ") + ", "; i.dataset.typing = ""; i.focus(); suggest();
   } else if (b.id === "lookup") {
     const m = $("#movie").value.trim(); if (!m) return $("#movie").focus();
-    control("lookup", { movie: m }, "Looking up “" + m + "”");          // the form is left exactly as typed
+    control("lookup", { movie: m }, "Looking up “" + shortLabel(m) + "”");          // the form is left exactly as typed
   } else if (b.dataset.theme) { store.set("bmsw.theme", b.dataset.theme); applyTheme(); renderAccount(); }
   else if (b.id === "actX") hideActivity();
+  else if (b.id === "langbtn") toggleLangs();
 });
 $("#addform").addEventListener("submit", async (e) => {
   e.preventDefault();
   const v = (id) => $("#" + id).value.trim().replace(/^,+|,+$/g, "").trim();
   const ok = await control("add", {
-    movie: v("movie"), theatres: v("theatres"), languages: v("langs") || "any", formats: v("fmt"),
+    movie: v("movie"), theatres: v("theatres"), languages: getLangs().join(", ") || "any", formats: v("fmt"),
     from_date: v("from"), to_date: v("to"), event_codes: v("codes"),
     notify_existing: String($("#notify").checked), once: String($("#once").checked),
-  }, "Adding “" + v("movie") + "”");
-  if (ok) { $("#addform").reset(); $("#langs").value = "hindi, english"; suggest(); location.hash = "#watch"; }   // clear only after success
+  }, "Adding “" + shortLabel(v("movie")) + "”");
+  if (ok) { $("#addform").reset(); langSummary(); suggest(); location.hash = "#watch"; }   // clear only after success
 });
 document.addEventListener("input", (e) => { if (e.target.id === "theatres") suggest(); });
+document.addEventListener("change", (e) => { if (e.target.closest("#langpanel")) langSummary(); });
+document.addEventListener("click", (e) => { if (!e.target.closest("#langs")) toggleLangs(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleLangs(false); });
 document.addEventListener("focusin", (e) => { if (e.target.id === "theatres") suggest(); });
 $("#refresh").onclick = () => load();
 $("#save").onclick = async () => {
@@ -510,7 +556,7 @@ window.addEventListener("hashchange", showView);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !busy && cfg.token) load(); });
 function applyTheme() { const t = store.get("bmsw.theme", "auto"); if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
 
-applyTheme(); renderNav();
+applyTheme(); renderNav(); langSummary();
 $("#ver").textContent = "v" + VERSION;
 $("#repo").value = cfg.repo;
 renderAll(); load();
