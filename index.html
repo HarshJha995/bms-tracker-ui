@@ -132,8 +132,15 @@ select{-webkit-appearance:none;appearance:none;padding-right:36px;
 .watch .row{margin-top:12px}
 .empty{text-align:center;padding:34px 18px}
 .empty svg{width:64px;height:64px;stroke:var(--mute);fill:none;stroke-width:1.5;margin-bottom:8px}
-.sched{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
 .sched b{display:block}
+.sched-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sched-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.ib{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.ib svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.switch{position:relative;width:52px;height:30px;border-radius:99px;border:0;padding:0;background:var(--line);cursor:pointer;flex:none;transition:background .2s}
+.switch i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.switch.on{background:var(--ok)}.switch.on i{transform:translateX(22px)}
+.switch:disabled{opacity:.6}
 
 /* ---------- activity card ---------- */
 .activity{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;z-index:30;
@@ -247,29 +254,6 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
     <h2>Account &amp; settings</h2>
     <p class="lead" id="acctsub"></p>
 
-    <div class="card" id="howto" hidden>
-      <b>Connect to GitHub</b>
-      <ol class="how sub">
-        <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token.</li>
-        <li>Repository access: only <code>bms-watcher</code>.</li>
-        <li>Permissions: <b>Actions: Read and write</b> and <b>Contents: Read-only</b>. Set an expiry.</li>
-        <li>Paste the token below and tap Save &amp; connect.</li>
-      </ol>
-    </div>
-
-    <div class="card">
-      <div class="row between"><b>GitHub connection</b><span class="pill" id="connpill">NOT CONNECTED</span></div>
-      <label for="repo">Repository</label>
-      <input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false">
-      <label for="token" id="tokenlabel">Access token</label>
-      <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
-      <div class="hint">Stored only in this browser. Never shared with anyone but GitHub.</div>
-      <div class="row" style="margin-top:14px">
-        <button class="btn pri" id="save">Save &amp; connect</button>
-        <button class="btn dng" id="forget" hidden>Sign out</button>
-      </div>
-    </div>
-
     <div class="card sched" id="sched"></div>
 
     <div class="card" id="budgetcard">
@@ -295,6 +279,30 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <p class="sub" style="margin:6px 0 0" id="about"></p>
       <p class="sub" style="margin:8px 0 0;font-size:12px">Posters: this product uses the TMDB API but is not endorsed or certified by TMDB.</p>
     </div>
+    <div id="connwrap">
+    <div class="card" id="howto" hidden>
+      <b>Connect to GitHub</b>
+      <ol class="how sub">
+        <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token.</li>
+        <li>Repository access: only <code>bms-tracker</code>.</li>
+        <li>Permissions: <b>Actions: Read and write</b> and <b>Contents: Read-only</b>. Set an expiry.</li>
+        <li>Paste the token below and tap Save &amp; connect.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <div class="row between"><b>GitHub connection</b><span class="pill" id="connpill">NOT CONNECTED</span></div>
+      <label for="repo">Repository</label>
+      <input id="repo" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label for="token" id="tokenlabel">Access token</label>
+      <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
+      <div class="hint">Stored only in this browser. Never shared with anyone but GitHub.</div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn pri" id="save">Save &amp; connect</button>
+        <button class="btn dng" id="forget" hidden>Sign out</button>
+      </div>
+    </div>
+    </div>
   </section>
 </main>
 
@@ -311,7 +319,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.2.3";
+const VERSION = "1.2.5";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -320,7 +328,7 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 const API = window.BMS_API || "https://api.github.com";
-const cfg = { repo: store.get("bmsw.repo", "HarshJha995/bms-watcher"), token: store.get("bmsw.token", ""), ref: "main" };
+const cfg = { repo: store.get("bmsw.repo", "HarshJha995/bms-tracker"), token: store.get("bmsw.token", ""), ref: "main" };
 const data = { watches: [], budget: {}, state: {}, catalog: [], loaded: false, error: null, at: null };
 let busy = false;
 
@@ -330,6 +338,8 @@ const ICONS = {
   account: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   cross: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></svg>',
+  bell: '<svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15L6 17z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
   ticket: '<svg viewBox="0 0 24 24"><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4V7z"/><path d="M14 7v10" stroke-dasharray="2 2"/></svg>',
 };
 const VIEWS = [["watch", "Watching"], ["add", "Add watch"], ["account", "Account"]];
@@ -472,11 +482,12 @@ function renderWatches() {
   $("#wsub").textContent = `${active} active · ${data.watches.length - active} inactive · updated ${data.at ? data.at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}`;
   const cron = data.state.cron_enabled;
   $("#wsub").textContent += cron === true ? " · scheduler on" : cron === false ? " · scheduler OFF" : "";
-  $("#sched").innerHTML = `<div><b>Scheduler</b><span class="sub">${cron === true ? "Checking automatically" : cron === false ? "Paused — nothing is being checked" : "State unknown"}</span></div>
-    <div class="row"><span class="pill ${cron === true ? "on" : cron === false ? "off" : "unknown"}">${cron === true ? "ON" : cron === false ? "OFF" : "UNKNOWN"}</span>
-    <button class="btn sm" data-t="${cron === true ? "cron_off" : "cron_on"}" data-idle ${dis}>Turn ${cron === true ? "off" : "on"}</button>
-    <button class="btn sm" data-t="check" data-idle ${dis}>Check now</button>
-    <button class="btn sm" data-t="test_alert" data-idle ${dis}>Test alert</button></div>`;
+  const sub = cron === true ? "Checking automatically" : cron === false ? "Paused — nothing is being checked" : "State unknown";
+  $("#sched").innerHTML = `<div class="sched-top"><div><b>Scheduler</b><span class="sub">${sub}</span></div>
+    <button class="switch ${cron === true ? "on" : ""}" role="switch" aria-checked="${cron === true}" aria-label="Scheduler" data-t="${cron === true ? "cron_off" : "cron_on"}" data-idle ${dis}><i></i></button></div>
+    <div class="sched-actions">
+      <button class="btn sm ib" data-t="check" data-idle ${dis}>${ICONS.refresh}Check now</button>
+      <button class="btn sm ib" data-t="test_alert" data-idle ${dis}>${ICONS.bell}Test alert</button></div>`;
   $("#watchList").innerHTML = data.watches.length ? data.watches.map((w, i) => {
     const ws = (data.state.watches || {})[w.name] || {};
     const st = watchStatus(w, ws);
@@ -498,6 +509,8 @@ function renderAdd() {
 function renderAccount() {
   const on = !!cfg.token, good = on && data.loaded && !data.error;
   $("#howto").hidden = on;
+  const cw = $("#connwrap"), sec = $("#v-account");
+  if (on) sec.appendChild(cw); else sec.insertBefore(cw, $("#acctsub").nextSibling);   // first-time setup stays at the top
   $("#forget").hidden = !on;
   $("#acctsub").textContent = on ? "Manage your connection and preferences." : "Connect once and this page can manage your watches.";
   $("#connpill").textContent = good ? "CONNECTED" : on ? (data.error ? "PROBLEM" : "CONNECTING…") : "NOT CONNECTED";
