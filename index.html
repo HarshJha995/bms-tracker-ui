@@ -224,7 +224,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <div class="hint">Leave dates empty to watch all upcoming days. Pick one date, or a range, to limit it.</div>
       <label for="release">Release date <span class="sub">optional, for a movie that isn't out yet</span></label>
       <input id="release" type="date">
-      <div class="hint">Checks less often until the release gets close (every 3 h, then 2 h, 1 h, and every 30 min in the last week).</div>
+      <div class="hint">Checks less often until the release gets close, and only watches the first week after release (saves credits). Leave empty for a movie already showing.</div>
 
       <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
       <input id="codes" placeholder="ET00523251" autocapitalize="characters">
@@ -268,6 +268,17 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       </div>
     </div>
 
+    <div class="card" id="budgetcard">
+      <b>Spending limits</b>
+      <p class="sub" style="margin:4px 0 0" id="spendnow"></p>
+      <div class="two">
+        <div><label for="bday">Per day ($)</label><input id="bday" type="number" inputmode="decimal" step="0.05" min="0.01" max="20" placeholder="0.30"></div>
+        <div><label for="brun">Per check ($)</label><input id="brun" type="number" inputmode="decimal" step="0.01" min="0.01" max="20" placeholder="0.05"></div>
+      </div>
+      <div class="hint">Each check is stopped once it costs the per-check amount. When the day's total is reached, checks pause until tomorrow ("Check now" still works). Apify's free plan gives $5 a month.</div>
+      <div class="row" style="margin-top:12px"><button class="btn pri" id="savebudget" data-idle>Save limits</button></div>
+    </div>
+
     <div class="card">
       <b>Appearance</b>
       <div style="margin-top:10px" class="seg" role="group" aria-label="Theme">
@@ -305,7 +316,7 @@ const store = {
 };
 const API = window.BMS_API || "https://api.github.com";
 const cfg = { repo: store.get("bmsw.repo", "HarshJha995/bms-watcher"), token: store.get("bmsw.token", ""), ref: "main" };
-const data = { watches: [], state: {}, catalog: [], loaded: false, error: null, at: null };
+const data = { watches: [], budget: {}, state: {}, catalog: [], loaded: false, error: null, at: null };
 let busy = false;
 
 const ICONS = {
@@ -337,6 +348,7 @@ async function load() {
   try {
     const [config, state, cat] = await Promise.all([readJson("watches.json", { watches: [] }), readJson("state.json", {}), readJson("catalog.json", {})]);
     data.watches = config.watches || [];
+    data.budget = config.budget || {};
     data.state = state || {};
     data.catalog = [...new Set(Object.values(cat || {}).flatMap((c) => (c.movies || []).map((m) => m.title)))];
     data.loaded = true; data.error = null; data.at = new Date();
@@ -482,6 +494,11 @@ function renderAccount() {
   const dot = $("#dot"); dot.className = "dot" + (good ? " on" : data.error ? " err" : ""); dot.title = good ? "Connected" : data.error ? data.error : "Not connected";
   const t = store.get("bmsw.theme", "auto");
   document.querySelectorAll("[data-theme]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.theme === t)));
+  const b = data.budget || {}, sp = data.state.spend || {};
+  const today = todayIST(), day = b.per_day_usd ?? 0.30, run = b.per_run_usd ?? 0.05;
+  $("#spendnow").textContent = `Estimated spend today: $${(sp.date === today ? sp.usd || 0 : 0).toFixed(3)} of $${Number(day).toFixed(2)}.`;
+  if (document.activeElement !== $("#bday")) $("#bday").value = day;
+  if (document.activeElement !== $("#brun")) $("#brun").value = run;
   $("#about").textContent = `My Personal Movie Tracker v${VERSION}. Watches ${cfg.repo} through GitHub Actions; alerts arrive via ntfy.`;
 }
 function renderAll() { renderWatches(); renderAdd(); renderAccount(); showView(); }
@@ -529,6 +546,7 @@ document.addEventListener("click", async (e) => {
     control("lookup", { movie: m }, "Looking up “" + shortLabel(m) + "”");          // the form is left exactly as typed
   } else if (b.dataset.theme) { store.set("bmsw.theme", b.dataset.theme); applyTheme(); renderAccount(); }
   else if (b.id === "actX") hideActivity();
+  else if (b.id === "savebudget") control("budget", { budget_day: $("#bday").value, budget_run: $("#brun").value }, "Saving spending limits");
   else if (b.classList.contains("ms-btn")) { const id = b.closest(".ms").id; msCloseAll(id); msToggle(id); }
 });
 $("#addform").addEventListener("submit", async (e) => {
