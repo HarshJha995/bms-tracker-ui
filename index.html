@@ -128,7 +128,8 @@ select{-webkit-appearance:none;appearance:none;padding-right:36px;
 .watch h3{margin:0;font-size:17px;line-height:1.25}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 6px}
 .tag{font-size:12.5px;font-weight:600;background:var(--chip);border-radius:8px;padding:2px 8px}
-.stats{font-size:13px;color:var(--mute)}
+.stats{font-size:13px;color:var(--mute);display:flex;flex-wrap:wrap;gap:2px 14px}
+.stats span{white-space:nowrap}
 .watch .row{margin-top:12px}
 .empty{text-align:center;padding:34px 18px}
 .empty svg{width:64px;height:64px;stroke:var(--mute);fill:none;stroke-width:1.5;margin-bottom:8px}
@@ -319,7 +320,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.2.6";
+const VERSION = "1.2.8";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -498,7 +499,7 @@ function renderWatches() {
     return `<article class="card watch">${poster(title, w.poster)}<div>
       <div class="row between" style="flex-wrap:nowrap;align-items:flex-start"><h3>${esc(title)}</h3><span class="pill ${st}">${st.toUpperCase()}</span></div>
       <div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
-      <div class="stats">${st === "active" ? `Checks every ${interval(w)} min · last checked ${esc(ago(ws.last_check))}` : "Not checking"} · ${(ws.seen || []).length} shows known${ws.last_alert ? ` · alerted ${esc(ago(ws.last_alert))}` : ""}</div>
+      <div class="stats">${[st === "active" ? `Checks every ${interval(w)} min` : "Not checking", st === "active" ? `Last checked ${esc(ago(ws.last_check))}` : "", `${(ws.seen || []).length} shows known`, ws.last_alert ? `Alerted ${esc(ago(ws.last_alert))}` : ""].filter(Boolean).map((x) => `<span>${x}</span>`).join("")}</div>
       <div class="row"><button class="btn sm" data-a="edit" data-i="${i}" data-idle ${dis}>Edit</button>${st === "active" ? `<button class="btn sm" data-a="pause" data-i="${i}" data-idle ${dis}>Pause</button>` : `<button class="btn sm" data-a="resume" data-i="${i}" data-idle ${dis}>Resume</button>`}
         <button class="btn sm dng" data-a="remove" data-i="${i}" data-idle ${dis}>Remove</button></div></div></article>`;
   }).join("") : `<div class="card empty">${ICONS.ticket.replace("<svg", "<svg")}<div><b>Nothing is being watched yet</b></div><p class="sub">Add a movie and a theatre and we'll alert you when shows open.</p><a class="btn pri" href="#add" style="display:inline-grid;place-items:center;text-decoration:none">Add a watch</a></div>`;
@@ -643,7 +644,21 @@ $("#save").onclick = async () => {
 };
 $("#forget").onclick = () => { store.del("bmsw.token"); cfg.token = ""; Object.assign(data, { loaded: false, error: null, watches: [], state: {} }); renderAll(); };
 window.addEventListener("hashchange", showView);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && !busy && cfg.token) load(); });
+// Home-screen web apps keep the old page in memory and cache it; check for a newer page and swap to it.
+async function checkForUpdate() {
+  try {
+    const r = await fetch(location.pathname + "?_=" + Date.now(), { cache: "no-store" });
+    const m = /const VERSION = "([^"]+)"/.exec(await r.text());
+    if (!m || m[1] === VERSION) return;
+    let tried = ""; try { tried = sessionStorage.getItem("cine.upd") || ""; } catch (e) {}
+    if (tried !== m[1]) {
+      try { sessionStorage.setItem("cine.upd", m[1]); } catch (e) {}
+      location.replace(location.pathname + "?v=" + encodeURIComponent(m[1]));
+    } else $("#ver").textContent = "v" + VERSION + " · update available";
+  } catch (e) { /* offline: stay on the current version */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) return; checkForUpdate(); if (!busy && cfg.token) load(); });
+checkForUpdate();
 function applyTheme() { const t = store.get("bmsw.theme", "auto"); if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
 
 applyTheme(); renderNav(); buildTheatres(); msSummary("langs");
