@@ -131,7 +131,7 @@ select{-webkit-appearance:none;appearance:none;padding-right:36px;
 .stats{font-size:13px;color:var(--mute);display:flex;flex-wrap:wrap;gap:2px 14px}
 .stats span{white-space:nowrap}
 .combo{position:relative}
-.sugg{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);max-height:280px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.22);padding:4px}
+.sugg{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);max-height:min(280px,38vh);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.22);padding:4px}
 .sugg button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);font:inherit;padding:11px 12px;border-radius:9px;cursor:pointer}
 .sugg button:hover,.sugg button.on{background:var(--chip)}
 .sugg mark{background:none;color:var(--brand);font-weight:700}
@@ -307,11 +307,6 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       </div></div>
     </div>
 
-    <div class="card">
-      <b>About</b>
-      <p class="sub" style="margin:6px 0 0" id="about"></p>
-      <p class="sub" style="margin:8px 0 0;font-size:12px">Posters: this product uses the TMDB API but is not endorsed or certified by TMDB.</p>
-    </div>
     <div id="connwrap">
     <div class="card" id="howto" hidden>
       <b>Connect to GitHub</b>
@@ -336,6 +331,12 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       </div>
     </div>
     </div>
+
+    <div class="card" id="aboutcard">
+      <b>About</b>
+      <p class="sub" style="margin:6px 0 0" id="about"></p>
+      <p class="sub" style="margin:8px 0 0;font-size:12px">Posters: this product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+    </div>
   </section>
 </main>
 
@@ -352,7 +353,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.3.1";
+const VERSION = "1.3.3";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -612,12 +613,12 @@ function showSugg() {
   box.hidden = false; inp.setAttribute("aria-expanded", "true");
 }
 function hideSugg() { $("#sugg").hidden = true; $("#movie").setAttribute("aria-expanded", "false"); }
-function pickSugg(t) { const i = $("#movie"); i.value = t; i.dispatchEvent(new Event("change", { bubbles: true })); hideSugg(); }
+function pickSugg(t) { const i = $("#movie"); i.value = t; i.dispatchEvent(new Event("change", { bubbles: true })); hideSugg(); i.blur(); }   // blur = close the phone keyboard
 function renderAccount() {
   const on = !!cfg.token, good = on && data.loaded && !data.error;
   $("#howto").hidden = on;
   const cw = $("#connwrap"), sec = $("#v-account");
-  if (on) sec.appendChild(cw); else sec.insertBefore(cw, $("#acctsub").nextSibling);   // first-time setup stays at the top
+  if (on) sec.insertBefore(cw, $("#aboutcard")); else sec.insertBefore(cw, $("#acctsub").nextSibling);   // first-time setup stays at the top
   $("#forget").hidden = !on;
   $("#acctsub").textContent = on ? "Manage your connection and preferences." : "Connect once and this page can manage your watches.";
   $("#connpill").textContent = good ? "CONNECTED" : on ? (data.error ? "PROBLEM" : "CONNECTING…") : "NOT CONNECTED";
@@ -742,7 +743,6 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") msCloseAll
 $("#refresh").onclick = () => load();
 $("#movie").addEventListener("focus", showSugg);
 $("#movie").addEventListener("input", showSugg);
-$("#movie").addEventListener("blur", () => setTimeout(hideSugg, 120));
 $("#movie").addEventListener("keydown", (e) => {
   const items = [...document.querySelectorAll("#sugg button")];
   if (e.key === "Escape") return hideSugg();
@@ -752,7 +752,11 @@ $("#movie").addEventListener("keydown", (e) => {
     items.forEach((b, i) => b.classList.toggle("on", i === suggIdx)); items[suggIdx].scrollIntoView({ block: "nearest" });
   } else if (e.key === "Enter" && suggIdx >= 0) { e.preventDefault(); pickSugg(items[suggIdx].dataset.t); }
 });
-$("#sugg").addEventListener("pointerdown", (e) => { const b = e.target.closest("button"); if (b) { e.preventDefault(); pickSugg(b.dataset.t); } });
+$("#sugg").addEventListener("mousedown", (e) => e.preventDefault());          // desktop: keep focus in the box while clicking
+$("#sugg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) pickSugg(b.dataset.t); });
+$("#sugg").addEventListener("touchmove", () => { if (document.activeElement === $("#movie")) $("#movie").blur(); }, { passive: true });   // scrolling the list closes the keyboard so more of it is visible
+document.addEventListener("click", (e) => { if (!e.target.closest(".combo")) hideSugg(); });
+document.addEventListener("focusin", (e) => { if (!e.target.closest(".combo")) hideSugg(); });
 $("#arefresh").onclick = () => loadRuns();
 $("#save").onclick = async () => {
   cfg.repo = $("#repo").value.trim() || cfg.repo;
