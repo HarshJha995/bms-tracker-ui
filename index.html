@@ -130,6 +130,19 @@ select{-webkit-appearance:none;appearance:none;padding-right:36px;
 .tag{font-size:12.5px;font-weight:600;background:var(--chip);border-radius:8px;padding:2px 8px}
 .stats{font-size:13px;color:var(--mute);display:flex;flex-wrap:wrap;gap:2px 14px}
 .stats span{white-space:nowrap}
+.run{padding:14px 16px;margin-bottom:12px}
+.run-h{display:flex;gap:12px;align-items:flex-start}
+.run-ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--chip);color:var(--mute)}
+.run-ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.run-ic.ok{background:var(--ok-soft);color:var(--ok)}.run-ic.warn{background:var(--warn-soft);color:var(--warn)}.run-ic.error{background:var(--bad-soft);color:var(--bad)}
+.run-t{min-width:0;flex:1}.run-t b{display:block}
+.run-meta{font-size:12.5px;color:var(--mute)}
+.run-head{margin:2px 0 0;overflow-wrap:anywhere}
+.run details{margin-top:10px}
+.run summary{cursor:pointer;font-size:13px;color:var(--mute);font-weight:600}
+.run pre{margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--chip);font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.run pre .w{color:var(--warn)}.run pre .e{color:var(--bad);font-weight:600}
+.run a.gl{font-size:12.5px;font-weight:600;color:var(--brand);text-decoration:none}
 .watch .row{margin-top:12px}
 .empty{text-align:center;padding:34px 18px}
 .empty svg{width:64px;height:64px;stroke:var(--mute);fill:none;stroke-width:1.5;margin-bottom:8px}
@@ -250,6 +263,15 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
     </form>
   </section>
 
+  <!-- ======== Activity ======== -->
+  <section id="v-activity" hidden>
+    <div class="row between" style="margin-bottom:12px">
+      <div><h2>Activity</h2><p class="lead" id="asub" style="margin:0">What the checks and actions did, in plain words.</p></div>
+      <button class="btn sm ib" id="arefresh"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></svg>Refresh</button>
+    </div>
+    <div id="runList"></div>
+  </section>
+
   <!-- ======== Account ======== -->
   <section id="v-account" hidden>
     <h2>Account &amp; settings</h2>
@@ -320,7 +342,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.2.8";
+const VERSION = "1.3.0";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -341,9 +363,10 @@ const ICONS = {
   cross: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   refresh: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></svg>',
   bell: '<svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15L6 17z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
+  activity: '<svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
   ticket: '<svg viewBox="0 0 24 24"><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4V7z"/><path d="M14 7v10" stroke-dasharray="2 2"/></svg>',
 };
-const VIEWS = [["watch", "Watching"], ["add", "Add watch"], ["account", "Account"]];
+const VIEWS = [["watch", "Watching"], ["add", "Add watch"], ["activity", "Activity"], ["account", "Account"]];
 
 // ---------- GitHub API ----------
 async function gh(path, opts = {}) {
@@ -358,6 +381,18 @@ async function readJson(file, fallback) {
   if (r.status === 404) return fallback;
   if (!r.ok) throw new Error(`Could not read ${file} (HTTP ${r.status}). Check the token has Contents: Read.`);
   return JSON.parse(await r.text());
+}
+async function loadRuns() {
+  if (!cfg.token) return;
+  $("#asub").textContent = "Loading…";
+  try {
+    const [log, r] = await Promise.all([readJson("runs.json", { runs: [] }), gh(`/repos/${cfg.repo}/actions/runs?per_page=25&t=${Date.now()}`)]);
+    if (!r.ok) throw new Error(`Could not list runs (HTTP ${r.status}). Check the token has Actions: Read.`);
+    data.log = Object.fromEntries((log.runs || []).map((x) => [String(x.id), x]));
+    data.runs = (await r.json()).workflow_runs || [];
+    data.runsErr = null;
+  } catch (e) { data.runsErr = e.message; }
+  renderRuns();
 }
 async function load() {
   if (!cfg.token) { renderAll(); return; }
@@ -457,6 +492,7 @@ async function dispatch(workflow, inputs, label) {
   } catch (e) { activity(label, "failed", e.message); }
   setBusy(false);
   await load();
+  loadRuns();
   return ok;
 }
 const control = (command, inputs = {}, label) => dispatch("control.yaml", { command, ...inputs }, label || command);
@@ -473,6 +509,7 @@ function showView() {
   if (v !== "add") exitEdit();
   for (const [id] of VIEWS) $("#v-" + id).hidden = id !== v;
   document.querySelectorAll("nav a").forEach((a) => (a.getAttribute("href") === "#" + v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
+  if (v === "activity" && cfg.token && !data.runs) loadRuns();
   window.scrollTo(0, 0);
 }
 function renderWatches() {
@@ -504,6 +541,42 @@ function renderWatches() {
         <button class="btn sm dng" data-a="remove" data-i="${i}" data-idle ${dis}>Remove</button></div></div></article>`;
   }).join("") : `<div class="card empty">${ICONS.ticket.replace("<svg", "<svg")}<div><b>Nothing is being watched yet</b></div><p class="sub">Add a movie and a theatre and we'll alert you when shows open.</p><a class="btn pri" href="#add" style="display:inline-grid;place-items:center;text-decoration:none">Add a watch</a></div>`;
 }
+const RUN_ICON = { ok: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>', warn: '<svg viewBox="0 0 24 24"><path d="M12 7v6M12 17h.01"/></svg>', error: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>', pending: '<div class="spinner" style="width:16px;height:16px;border-width:2px"></div>' };
+function runTitle(r, e) {
+  if (e && e.kind === "control") return "Action: " + e.title;
+  if (e) return "Check for new shows";
+  return r.name === "control" ? "Action" : "Check for new shows";
+}
+function runHeadline(r, e, level) {
+  if (r.status !== "completed") return r.status === "queued" ? "Waiting to start…" : "Running…";
+  if (e) {
+    const L = e.lines || [], pick = (re) => L.find((x) => re.test(x.t));
+    const bad = L.find((x) => x.l === "error") || L.find((x) => x.l === "warn"); if (bad) return bad.t;
+    const hit = pick(/NEW show/) ? "New shows found — alert sent" : pick(/baseline recorded/) ? "First look recorded — you'll be told about changes from now on" : pick(/nothing new/) ? "Checked — nothing new" : "";
+    return hit || (L.length ? L[L.length - 1].t : "Done");
+  }
+  if (r.conclusion === "success") return r.name === "control" ? "Done" : "Nothing was due — no check needed";
+  if (r.conclusion === "cancelled") return "Cancelled";
+  return "Failed before it could report — see the full log";
+}
+function renderRuns() {
+  const box = $("#runList");
+  if (data.runsErr) { box.innerHTML = `<div class="card"><b>Couldn't load</b><p class="sub">${esc(data.runsErr)}</p></div>`; $("#asub").textContent = ""; return; }
+  if (!data.runs) { box.innerHTML = '<div class="empty sub">Loading…</div>'; return; }
+  $("#asub").textContent = `Latest ${data.runs.length} runs · updated ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  box.innerHTML = data.runs.length ? data.runs.map((r) => {
+    const e = data.log[String(r.id)];
+    const done = r.status === "completed";
+    const level = !done ? "pending" : e ? e.level : r.conclusion === "success" ? "ok" : r.conclusion === "cancelled" ? "warn" : "error";
+    const dur = done && r.run_started_at ? Math.max(1, Math.round((new Date(r.updated_at) - new Date(r.run_started_at)) / 1000)) : 0;
+    const lines = e ? (e.lines || []) : [];
+    const head = runHeadline(r, e, level);
+    const body = lines.length && !(lines.length === 1 && lines[0].t === head) ? `<details ${level === "error" || level === "warn" ? "open" : ""}><summary>${lines.length} line${lines.length > 1 ? "s" : ""} of output</summary><pre>${lines.map((x) => x.l === "error" ? `<span class="e">${esc(x.t)}</span>` : x.l === "warn" ? `<span class="w">${esc(x.t)}</span>` : esc(x.t)).join("\n")}</pre></details>` : "";
+    return `<article class="card run"><div class="run-h"><span class="run-ic ${level}">${RUN_ICON[level]}</span>
+      <div class="run-t"><b>${esc(runTitle(r, e))}</b><div class="run-meta">${esc(ago(r.created_at))}${dur ? " · took " + (dur >= 60 ? Math.floor(dur / 60) + " min" + (dur % 60 ? " " + (dur % 60) + " s" : "") : dur + " s") : ""} · <a class="gl" href="${esc(r.html_url)}" target="_blank" rel="noopener">Full log ↗</a></div>
+      <p class="run-head sub" style="margin:4px 0 0">${esc(head)}</p></div></div>${body}</article>`;
+  }).join("") : '<div class="card empty"><b>No runs yet</b></div>';
+}
 function renderAdd() {
   $("#movies").innerHTML = data.catalog.map((t) => `<option value="${esc(t)}">`).join("");
 }
@@ -527,7 +600,7 @@ function renderAccount() {
   if (document.activeElement !== $("#brun")) $("#brun").value = run;
   $("#about").textContent = `CineTrackr v${VERSION}. Watches ${cfg.repo} through GitHub Actions; alerts arrive via ntfy.`;
 }
-function renderAll() { renderWatches(); renderAdd(); renderAccount(); showView(); }
+function renderAll() { renderWatches(); renderAdd(); renderAccount(); if (data.runs) renderRuns(); showView(); }
 
 // ---------- multi-select dropdowns (languages, theatres) ----------
 // [keyword sent to the watcher (matched inside the venue name), label shown]. Edit this list to add theatres.
@@ -633,6 +706,7 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") msCloseAll(); });
 $("#refresh").onclick = () => load();
+$("#arefresh").onclick = () => loadRuns();
 $("#save").onclick = async () => {
   cfg.repo = $("#repo").value.trim() || cfg.repo;
   const t = $("#token").value.trim();
