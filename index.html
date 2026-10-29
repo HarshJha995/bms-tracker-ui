@@ -214,7 +214,10 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
         <div><label for="from">From date</label><input id="from" type="date"></div>
         <div><label for="to">To date</label><input id="to" type="date"></div>
       </div>
-      <div class="hint">Leave dates empty to watch the next 31 days (or from the release date when it is known). Pick one date, or a range.</div>
+      <div class="hint">Leave dates empty to watch all upcoming days. Pick one date, or a range, to limit it.</div>
+      <label for="release">Release date <span class="sub">optional, for a movie that isn't out yet</span></label>
+      <input id="release" type="date">
+      <div class="hint">Checks less often until the release gets close (every 90 min, then every 30 min in the last week) and saves credits.</div>
 
       <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
       <input id="codes" placeholder="ET00523251" autocapitalize="characters">
@@ -531,7 +534,7 @@ $("#addform").addEventListener("submit", async (e) => {
   const v = (id) => $("#" + id).value.trim().replace(/^,+|,+$/g, "").trim();
   const ok = await control("add", {
     movie: v("movie"), theatres: v("theatres"), languages: getLangs().join(", ") || "any", formats: v("fmt"),
-    from_date: v("from"), to_date: v("to"), event_codes: v("codes"),
+    from_date: v("from"), to_date: v("to"), release_date: v("release"), event_codes: v("codes"),
     notify_existing: String($("#notify").checked), once: String($("#once").checked),
   }, "Adding “" + shortLabel(v("movie")) + "”");
   if (ok) { $("#addform").reset(); langSummary(); suggest(); location.hash = "#watch"; }   // clear only after success
