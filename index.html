@@ -268,10 +268,10 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
     </div>
 
     <div class="card">
-      <b>Appearance</b>
-      <div style="margin-top:10px" class="seg" role="group" aria-label="Theme">
+      <div class="row between"><b>Appearance</b>
+      <div class="seg" role="group" aria-label="Theme">
         <button data-theme="auto">Auto</button><button data-theme="light">Light</button><button data-theme="dark">Dark</button>
-      </div>
+      </div></div>
     </div>
 
     <div class="card">
@@ -319,7 +319,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.2.5";
+const VERSION = "1.2.6";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
