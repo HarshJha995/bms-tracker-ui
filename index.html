@@ -9,17 +9,20 @@
 <title>My Personal Movie Tracker</title>
 <style>
 :root{
+  color-scheme:light;
   --bg:#f3f4f8;--surface:#fff;--ink:#1e2230;--mute:#667085;--line:#e3e6ee;--chip:#eef0f6;
   --brand:#f84464;--brand-ink:#fff;--brand-soft:#fde7ec;--nav:#1f2433;--nav-ink:#fff;
   --ok:#0f9d58;--warn:#b86e00;--bad:#d92d4b;--ok-soft:#e3f6ec;--warn-soft:#fdf0d8;--bad-soft:#fde7ec;
   --shadow:0 1px 2px rgba(20,24,40,.06),0 8px 24px rgba(20,24,40,.06);--r:16px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  color-scheme:dark;
   --bg:#0f121a;--surface:#181d2b;--ink:#eceef5;--mute:#98a1b5;--line:#272d3f;--chip:#232a3b;
   --brand:#ff5a78;--brand-ink:#1a0b10;--brand-soft:#3a1a24;--nav:#0b0e15;
   --ok:#3ddc84;--warn:#fbbf24;--bad:#ff7a90;--ok-soft:#14301f;--warn-soft:#33270c;--bad-soft:#3a1a24;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3)}}
 :root[data-theme=dark]{
+  color-scheme:dark;
   --bg:#0f121a;--surface:#181d2b;--ink:#eceef5;--mute:#98a1b5;--line:#272d3f;--chip:#232a3b;
   --brand:#ff5a78;--brand-ink:#1a0b10;--brand-soft:#3a1a24;--nav:#0b0e15;
   --ok:#3ddc84;--warn:#fbbf24;--bad:#ff7a90;--ok-soft:#14301f;--warn-soft:#33270c;--bad-soft:#3a1a24;
@@ -95,6 +98,8 @@ input[type=checkbox]:checked{background:var(--brand);border-color:var(--brand)}
 input[type=checkbox]:checked::after{content:"";width:6px;height:11px;border:solid var(--brand-ink);border-width:0 2.5px 2.5px 0;transform:translateY(-1px) rotate(45deg)}
 input[type=date]{min-width:0;height:46px;display:block;-webkit-appearance:none;appearance:none;line-height:1.2}
 input[type=date]::-webkit-date-and-time-value{text-align:left}
+input[type=date]{cursor:pointer}
+input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.85;padding:4px}
 input[type=date]:not(:focus):invalid::before,input[type=date]:not([value]):not(:focus)::before{color:var(--mute)}
 select{-webkit-appearance:none;appearance:none;padding-right:36px;
   background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);
@@ -190,16 +195,18 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <input id="movie" list="movies" required placeholder="Movie name, or a BookMyShow share link" autocapitalize="off">
       <datalist id="movies"></datalist>
 
-      <label for="theatres">Theatre(s)</label>
-      <input id="theatres" required placeholder="Start typing a theatre…" autocapitalize="off" aria-controls="sug">
-      <div class="chips" id="sug"></div>
-      <div class="hint">Pick from theatres seen in earlier checks, or type any part of a theatre's name.</div>
+      <label id="thlabel">Theatre(s)</label>
+      <div class="ms" id="theatres" data-empty="Select theatres">
+        <button type="button" class="ms-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="thlabel"></button>
+        <div class="ms-panel" hidden></div>
+      </div>
+      <div class="hint" id="thhint">Pick one or more.</div>
 
       <div class="two">
         <div><label id="langlabel">Languages</label>
-          <div class="ms" id="langs">
-            <button type="button" class="ms-btn" id="langbtn" aria-haspopup="true" aria-expanded="false" aria-labelledby="langlabel langbtn"></button>
-            <div class="ms-panel" id="langpanel" hidden>
+          <div class="ms" id="langs" data-empty="Any language">
+            <button type="button" class="ms-btn" aria-haspopup="true" aria-expanded="false" aria-labelledby="langlabel"></button>
+            <div class="ms-panel" hidden>
               <label><input type="checkbox" value="hindi" checked> Hindi</label>
               <label><input type="checkbox" value="english" checked> English</label>
               <label><input type="checkbox" value="telugu"> Telugu</label>
@@ -217,7 +224,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <div class="hint">Leave dates empty to watch all upcoming days. Pick one date, or a range, to limit it.</div>
       <label for="release">Release date <span class="sub">optional, for a movie that isn't out yet</span></label>
       <input id="release" type="date">
-      <div class="hint">Checks less often until the release gets close (every 90 min, then every 30 min in the last week) and saves credits.</div>
+      <div class="hint">Checks less often until the release gets close (every 3 h, then 2 h, 1 h, and every 30 min in the last week).</div>
 
       <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
       <input id="codes" placeholder="ET00523251" autocapitalize="characters">
@@ -298,7 +305,7 @@ const store = {
 };
 const API = window.BMS_API || "https://api.github.com";
 const cfg = { repo: store.get("bmsw.repo", "HarshJha995/bms-watcher"), token: store.get("bmsw.token", ""), ref: "main" };
-const data = { watches: [], state: {}, catalog: [], theatres: [], loaded: false, error: null, at: null };
+const data = { watches: [], state: {}, catalog: [], loaded: false, error: null, at: null };
 let busy = false;
 
 const ICONS = {
@@ -332,10 +339,6 @@ async function load() {
     data.watches = config.watches || [];
     data.state = state || {};
     data.catalog = [...new Set(Object.values(cat || {}).flatMap((c) => (c.movies || []).map((m) => m.title)))];
-    const short = (n) => String(n).split(",")[0].trim();          // commas separate keywords in the add form
-    data.theatres = [...new Set([...Object.values(data.state.venues || {}).map(short), ...data.watches.flatMap((w) => w.theatres || [])])]
-      .sort((a, b) => a.localeCompare(b))
-      .filter((t, _, all) => !all.some((u) => u !== t && u.toLowerCase().includes(t.toLowerCase())));
     data.loaded = true; data.error = null; data.at = new Date();
   } catch (e) { data.error = e.message; }
   renderAll();
@@ -350,13 +353,11 @@ function watchStatus(w, ws) {
   const exp = w.expires || (w.dates && w.dates.to);
   return exp && exp < todayIST() ? "expired" : "active";
 }
-function interval(w) {
+function interval(w) {                                   // mirrors poll_minutes() in watcher.py
   const t = (w.dates && w.dates.from) || w.release_date;
   if (!t) return 30;
   const days = (new Date(t + "T00:00:00+05:30") - Date.now()) / 864e5;
-  if (days <= 7) return 30;
-  if (days >= 14) return 90;
-  return Math.max(30, Math.min(90, Math.round((30 + 60 * (days - 7) / 7) / 15) * 15));
+  return days <= 7 ? 30 : days <= 14 ? 60 : days <= 30 ? 120 : 180;
 }
 function ago(iso) {
   if (!iso) return "never";
@@ -469,7 +470,6 @@ function renderWatches() {
 }
 function renderAdd() {
   $("#movies").innerHTML = data.catalog.map((t) => `<option value="${esc(t)}">`).join("");
-  suggest();
 }
 function renderAccount() {
   const on = !!cfg.token, good = on && data.loaded && !data.error;
@@ -486,28 +486,34 @@ function renderAccount() {
 }
 function renderAll() { renderWatches(); renderAdd(); renderAccount(); showView(); }
 
-// ---------- language multi-select ----------
-const langBoxes = () => [...document.querySelectorAll("#langpanel input")];
-const getLangs = () => langBoxes().filter((c) => c.checked).map((c) => c.value);
-function langSummary() {
-  const on = langBoxes().filter((c) => c.checked).map((c) => c.parentElement.textContent.trim());
-  $("#langbtn").textContent = on.length ? on.join(", ") : "Any language";
+// ---------- multi-select dropdowns (languages, theatres) ----------
+// [keyword sent to the watcher (matched inside the venue name), label shown]. Edit this list to add theatres.
+const THEATRES = [
+  ["AMB Cinemas", "AMB Cinemas: Gachibowli"],
+  ["Prasads Multiplex", "Prasads Multiplex: Hyderabad"],
+  ["ALLU Cinemas", "ALLU Cinemas: Kokapet"],
+  ["Aparna Cinemas: Nallagandla", "Aparna Cinemas: Nallagandla"],
+  ["PVR: Nexus Mall Kukatpally", "PVR: Nexus Mall Kukatpally"],
+  ["PVR ICON: Hitech", "PVR ICON: Hitech, Madhapur, Hyderabad"],
+  ["PVR: Atrium", "PVR: Atrium Gachibowli, Hyderabad"],
+];
+const msBoxes = (id) => [...document.querySelectorAll(`#${id} .ms-panel input`)];
+const msValues = (id) => msBoxes(id).filter((c) => c.checked).map((c) => c.value);
+function msSummary(id) {
+  const on = msBoxes(id).filter((c) => c.checked).map((c) => c.dataset.label || c.parentElement.textContent.trim());
+  $(`#${id} .ms-btn`).textContent = on.length === 0 ? $("#" + id).dataset.empty : on.length <= 2 ? on.join(", ") : on.length + " selected";
 }
-function toggleLangs(open) {
-  const p = $("#langpanel"); p.hidden = open === undefined ? !p.hidden : !open;
-  $("#langbtn").setAttribute("aria-expanded", String(!p.hidden));
+function msToggle(id, open) {
+  const box = $("#" + id), p = box.querySelector(".ms-panel");
+  p.hidden = open === undefined ? !p.hidden : !open;
+  box.querySelector(".ms-btn").setAttribute("aria-expanded", String(!p.hidden));
+}
+const msCloseAll = (except) => document.querySelectorAll(".ms").forEach((m) => m.id !== except && msToggle(m.id, false));
+function buildTheatres() {
+  $("#theatres .ms-panel").innerHTML = THEATRES.map(([k, l]) => `<label><input type="checkbox" value="${esc(k)}" data-label="${esc(l)}"> ${esc(l)}</label>`).join("");
+  msSummary("theatres");
 }
 const shortLabel = (m) => /https?:\/\//.test(m) ? "movie link" : m.length > 36 ? m.slice(0, 34) + "…" : m;
-
-// ---------- theatre autocomplete ----------
-function suggest() {
-  const i = $("#theatres"), box = $("#sug"); if (!i || !box) return;
-  const segs = i.value.split(","), last = segs[segs.length - 1].trim().toLowerCase();
-  const chosen = segs.slice(0, -1).map((x) => x.trim().toLowerCase());
-  i.dataset.typing = last ? "1" : "";
-  box.innerHTML = data.theatres.filter((t) => !chosen.includes(t.toLowerCase()) && t.toLowerCase().includes(last)).slice(0, 8)
-    .map((t) => `<button type="button" data-th="${esc(t)}">${esc(t)}</button>`).join("");
-}
 
 // ---------- events ----------
 document.addEventListener("click", async (e) => {
@@ -518,32 +524,36 @@ document.addEventListener("click", async (e) => {
     control(b.dataset.a, { name: w.name }, `${b.dataset.a[0].toUpperCase() + b.dataset.a.slice(1)} ${name}`);
   } else if (b.dataset.t === "check") dispatch("watcher.yaml", { force: "true" }, "Checking for new shows");
   else if (b.dataset.t) control(b.dataset.t, {}, { cron_on: "Turning scheduler on", cron_off: "Turning scheduler off", test_alert: "Sending a test alert" }[b.dataset.t]);
-  else if (b.dataset.th) {
-    const i = $("#theatres"), parts = i.value.split(",").map((x) => x.trim()).filter(Boolean);
-    if (i.dataset.typing) parts.pop();
-    i.value = [...parts, b.dataset.th].join(", ") + ", "; i.dataset.typing = ""; i.focus(); suggest();
-  } else if (b.id === "lookup") {
+  else if (b.id === "lookup") {
     const m = $("#movie").value.trim(); if (!m) return $("#movie").focus();
     control("lookup", { movie: m }, "Looking up “" + shortLabel(m) + "”");          // the form is left exactly as typed
   } else if (b.dataset.theme) { store.set("bmsw.theme", b.dataset.theme); applyTheme(); renderAccount(); }
   else if (b.id === "actX") hideActivity();
-  else if (b.id === "langbtn") toggleLangs();
+  else if (b.classList.contains("ms-btn")) { const id = b.closest(".ms").id; msCloseAll(id); msToggle(id); }
 });
 $("#addform").addEventListener("submit", async (e) => {
   e.preventDefault();
   const v = (id) => $("#" + id).value.trim().replace(/^,+|,+$/g, "").trim();
+  const picked = msValues("theatres");
+  if (!picked.length) { const h = $("#thhint"); h.textContent = "Pick at least one theatre."; h.style.color = "var(--bad)"; msToggle("theatres", true); return; }
   const ok = await control("add", {
-    movie: v("movie"), theatres: v("theatres"), languages: getLangs().join(", ") || "any", formats: v("fmt"),
+    movie: v("movie"), theatres: picked.join(", "), languages: msValues("langs").join(", ") || "any", formats: v("fmt"),
     from_date: v("from"), to_date: v("to"), release_date: v("release"), event_codes: v("codes"),
     notify_existing: String($("#notify").checked), once: String($("#once").checked),
   }, "Adding “" + shortLabel(v("movie")) + "”");
-  if (ok) { $("#addform").reset(); langSummary(); suggest(); location.hash = "#watch"; }   // clear only after success
+  if (ok) { $("#addform").reset(); msSummary("langs"); msSummary("theatres"); location.hash = "#watch"; }   // clear only after success
 });
-document.addEventListener("input", (e) => { if (e.target.id === "theatres") suggest(); });
-document.addEventListener("change", (e) => { if (e.target.closest("#langpanel")) langSummary(); });
-document.addEventListener("click", (e) => { if (!e.target.closest("#langs")) toggleLangs(false); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleLangs(false); });
-document.addEventListener("focusin", (e) => { if (e.target.id === "theatres") suggest(); });
+document.addEventListener("change", (e) => {
+  const m = e.target.closest(".ms"); if (!m) return;
+  msSummary(m.id);
+  if (m.id === "theatres") { const h = $("#thhint"); h.textContent = "Pick one or more."; h.style.color = ""; }
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".ms")) msCloseAll();
+  const d = e.target.closest("input[type=date]");
+  if (d && d.showPicker) { try { d.showPicker(); } catch {} }          // desktop: the whole field opens the calendar
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") msCloseAll(); });
 $("#refresh").onclick = () => load();
 $("#save").onclick = async () => {
   cfg.repo = $("#repo").value.trim() || cfg.repo;
@@ -559,7 +569,7 @@ window.addEventListener("hashchange", showView);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !busy && cfg.token) load(); });
 function applyTheme() { const t = store.get("bmsw.theme", "auto"); if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
 
-applyTheme(); renderNav(); langSummary();
+applyTheme(); renderNav(); buildTheatres(); msSummary("langs");
 $("#ver").textContent = "v" + VERSION;
 $("#repo").value = cfg.repo;
 renderAll(); load();
