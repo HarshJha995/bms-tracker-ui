@@ -188,8 +188,8 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
   <!-- ======== Add ======== -->
   <section id="v-add" hidden>
-    <h2>Add a watch</h2>
-    <p class="lead">You'll get an alert the moment new show timings appear.</p>
+    <h2 id="addtitle">Add a watch</h2>
+    <p class="lead" id="addlead">You'll get an alert the moment new show timings appear.</p>
     <form class="card" id="addform" autocomplete="off">
       <label for="movie" style="margin-top:0">Movie name</label>
       <input id="movie" list="movies" required placeholder="Movie name, or a BookMyShow share link" autocapitalize="off">
@@ -233,7 +233,8 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <label class="chk" style="margin-top:0"><input type="checkbox" id="once"> Stop after the first alert</label>
 
       <div class="row" style="margin-top:8px">
-        <button class="btn pri" type="submit" data-idle>Add watch</button>
+        <button class="btn pri" type="submit" id="addsubmit" data-idle>Add watch</button>
+        <button class="btn" type="button" id="canceledit" hidden>Cancel</button>
         <button class="btn" type="button" id="lookup" data-idle>Just look up the code</button>
       </div>
       <div class="hint">Names are matched loosely, so partial names and small typos are fine. For a <b>coming-soon</b> movie, paste its share link from the BookMyShow app instead of the name. A lookup result arrives as a notification and keeps what you typed.</div>
@@ -376,6 +377,7 @@ function ago(iso) {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
   return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago";
 }
+const cleanTitle = (t) => String(t || "").replace(/[\s-]+(english|hindi|telugu|tamil|kannada|malayalam|marathi|bengali|punjabi|2d|3d|imax)$/i, "").trim();
 const fmtDate = (d) => d ? new Date(d + "T00:00:00+05:30").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: IST }) : "";
 function poster(title) {
   let h = 0; for (const c of title) h = (h * 31 + c.charCodeAt(0)) % 360;
@@ -448,6 +450,7 @@ function showView() {
   let v = (location.hash || "#watch").slice(1);
   if (!VIEWS.some(([id]) => id === v)) v = "watch";
   if (!cfg.token) v = "account";
+  if (v !== "add") exitEdit();
   for (const [id] of VIEWS) $("#v-" + id).hidden = id !== v;
   document.querySelectorAll("nav a").forEach((a) => (a.getAttribute("href") === "#" + v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
   window.scrollTo(0, 0);
@@ -468,15 +471,15 @@ function renderWatches() {
   $("#watchList").innerHTML = data.watches.length ? data.watches.map((w, i) => {
     const ws = (data.state.watches || {})[w.name] || {};
     const st = watchStatus(w, ws);
-    const when = w.dates && w.dates.from ? `Dates: ${fmtDate(w.dates.from)}${w.dates.to && w.dates.to !== w.dates.from ? " – " + fmtDate(w.dates.to) : ""}`
-      : w.release_date ? `Dates: from release, ${fmtDate(w.release_date)}` : "Dates: next 31 days";
+    const when = w.dates && w.dates.from ? `Only ${fmtDate(w.dates.from)}${w.dates.to && w.dates.to !== w.dates.from ? " – " + fmtDate(w.dates.to) : ""}`
+      : w.release_date ? `From release, ${fmtDate(w.release_date)}` : "All upcoming dates";
     const tags = [...(w.theatres || ["Any theatre"]), when, ...(w.languages || []).map((x) => x[0].toUpperCase() + x.slice(1)), ...(w.formats || []).map((x) => x.toUpperCase()), w.once ? "Alert once" : ""].filter(Boolean);
-    const title = w.movie || w.name;
+    const title = cleanTitle(w.movie || w.name);
     return `<article class="card watch">${poster(title)}<div>
       <div class="row between" style="flex-wrap:nowrap;align-items:flex-start"><h3>${esc(title)}</h3><span class="pill ${st}">${st.toUpperCase()}</span></div>
       <div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <div class="stats">${st === "active" ? `Checks every ${interval(w)} min · last checked ${esc(ago(ws.last_check))}` : "Not checking"} · ${(ws.seen || []).length} shows known${ws.last_alert ? ` · alerted ${esc(ago(ws.last_alert))}` : ""}</div>
-      <div class="row">${st === "active" ? `<button class="btn sm" data-a="pause" data-i="${i}" data-idle ${dis}>Pause</button>` : `<button class="btn sm" data-a="resume" data-i="${i}" data-idle ${dis}>Resume</button>`}
+      <div class="row"><button class="btn sm" data-a="edit" data-i="${i}" data-idle ${dis}>Edit</button>${st === "active" ? `<button class="btn sm" data-a="pause" data-i="${i}" data-idle ${dis}>Pause</button>` : `<button class="btn sm" data-a="resume" data-i="${i}" data-idle ${dis}>Resume</button>`}
         <button class="btn sm dng" data-a="remove" data-i="${i}" data-idle ${dis}>Remove</button></div></div></article>`;
   }).join("") : `<div class="card empty">${ICONS.ticket.replace("<svg", "<svg")}<div><b>Nothing is being watched yet</b></div><p class="sub">Add a movie and a theatre and we'll alert you when shows open.</p><a class="btn pri" href="#add" style="display:inline-grid;place-items:center;text-decoration:none">Add a watch</a></div>`;
 }
@@ -526,15 +529,48 @@ function msToggle(id, open) {
   box.querySelector(".ms-btn").setAttribute("aria-expanded", String(!p.hidden));
 }
 const msCloseAll = (except) => document.querySelectorAll(".ms").forEach((m) => m.id !== except && msToggle(m.id, false));
-function buildTheatres() {
-  $("#theatres .ms-panel").innerHTML = THEATRES.map(([k, l]) => `<label><input type="checkbox" value="${esc(k)}" data-label="${esc(l)}"> ${esc(l)}</label>`).join("");
+function buildTheatres(extra = []) {
+  const all = [...THEATRES, ...extra.map((k) => [k, k])];       // keep watched theatres that aren't in the list
+  $("#theatres .ms-panel").innerHTML = all.map(([k, l]) => `<label><input type="checkbox" value="${esc(k)}" data-label="${esc(l)}"> ${esc(l)}</label>`).join("");
   msSummary("theatres");
+}
+let editing = null;                                              // name of the watch being edited, or null
+function enterEdit(w) {
+  editing = w.name;
+  const known = (k) => THEATRES.find(([key]) => key.toLowerCase() === String(k).toLowerCase() || key.toLowerCase().includes(String(k).toLowerCase()));
+  buildTheatres((w.theatres || []).filter((k) => !known(k)));
+  const keys = (w.theatres || []).map((k) => (known(k) || [k])[0].toLowerCase());
+  msBoxes("theatres").forEach((c) => (c.checked = keys.includes(c.value.toLowerCase())));
+  msSummary("theatres");
+  msBoxes("langs").forEach((c) => (c.checked = (w.languages || []).includes(c.value)));
+  msSummary("langs");
+  $("#movie").value = cleanTitle(w.movie || w.name); $("#movie").readOnly = true;
+  $("#fmt").value = (w.formats || [""])[0] || "";
+  $("#from").value = (w.dates || {}).from || ""; $("#to").value = (w.dates || {}).to || "";
+  $("#release").value = w.release_date || "";
+  $("#codes").value = (w.event_codes || []).join(", ");
+  $("#notify").checked = !!w.notify_existing; $("#once").checked = !!w.once;
+  $("#addtitle").textContent = "Edit watch";
+  $("#addlead").textContent = "Change theatres, dates or filters. Shows that already exist are treated as known again, so you only get alerted about new ones.";
+  $("#addsubmit").textContent = "Save changes"; $("#canceledit").hidden = false; $("#lookup").hidden = true;
+  location.hash = "#add";
+}
+function exitEdit() {
+  if (editing === null) return;
+  editing = null;
+  $("#addform").reset(); $("#movie").readOnly = false;
+  buildTheatres(); msSummary("langs");
+  $("#addtitle").textContent = "Add a watch";
+  $("#addlead").textContent = "You'll get an alert the moment new show timings appear.";
+  $("#addsubmit").textContent = "Add watch"; $("#canceledit").hidden = true; $("#lookup").hidden = false;
 }
 const shortLabel = (m) => /https?:\/\//.test(m) ? "movie link" : m.length > 36 ? m.slice(0, 34) + "…" : m;
 
 // ---------- events ----------
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.a === "edit") { enterEdit(data.watches[+b.dataset.i]); return; }
+  if (b.id === "canceledit") { exitEdit(); location.hash = "#watch"; return; }
   if (b.dataset.a) {
     const w = data.watches[+b.dataset.i], name = w.movie || w.name;
     if (b.dataset.a === "remove" && !confirm(`Remove “${name}”?`)) return;
@@ -554,12 +590,13 @@ $("#addform").addEventListener("submit", async (e) => {
   const v = (id) => $("#" + id).value.trim().replace(/^,+|,+$/g, "").trim();
   const picked = msValues("theatres");
   if (!picked.length) { const h = $("#thhint"); h.textContent = "Pick at least one theatre."; h.style.color = "var(--bad)"; msToggle("theatres", true); return; }
-  const ok = await control("add", {
+  const ok = await control(editing ? "edit" : "add", {
+    ...(editing ? { name: editing } : {}),
     movie: v("movie"), theatres: picked.join(", "), languages: msValues("langs").join(", ") || "any", formats: v("fmt"),
     from_date: v("from"), to_date: v("to"), release_date: v("release"), event_codes: v("codes"),
     notify_existing: String($("#notify").checked), once: String($("#once").checked),
-  }, "Adding “" + shortLabel(v("movie")) + "”");
-  if (ok) { $("#addform").reset(); msSummary("langs"); msSummary("theatres"); location.hash = "#watch"; }   // clear only after success
+  }, editing ? "Saving changes" : "Adding “" + shortLabel(v("movie")) + "”");
+  if (ok) { if (editing) exitEdit(); else { $("#addform").reset(); msSummary("langs"); msSummary("theatres"); } location.hash = "#watch"; }   // clear only after success
 });
 document.addEventListener("change", (e) => {
   const m = e.target.closest(".ms"); if (!m) return;
