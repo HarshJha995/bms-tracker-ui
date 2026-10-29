@@ -290,6 +290,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
     <div class="card">
       <b>About</b>
       <p class="sub" style="margin:6px 0 0" id="about"></p>
+      <p class="sub" style="margin:8px 0 0;font-size:12px">Posters: this product uses the TMDB API but is not endorsed or certified by TMDB.</p>
     </div>
   </section>
 </main>
@@ -379,7 +380,12 @@ function ago(iso) {
 }
 const cleanTitle = (t) => String(t || "").replace(/[\s-]+(english|hindi|telugu|tamil|kannada|malayalam|marathi|bengali|punjabi|2d|3d|imax)$/i, "").trim();
 const fmtDate = (d) => d ? new Date(d + "T00:00:00+05:30").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: IST }) : "";
-function poster(title) {
+function poster(title, img) {
+  const tile = posterTile(title);
+  if (!img || !/^https:\/\//.test(img)) return tile;
+  return `<div class="poster" style="background:none;padding:0;overflow:hidden"><img src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.outerHTML=this.parentNode.dataset.tile" ></div>`.replace('<div class="poster"', `<div data-tile="${esc(tile)}" class="poster"`);
+}
+function posterTile(title) {
   let h = 0; for (const c of title) h = (h * 31 + c.charCodeAt(0)) % 360;
   const ini = title.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join("") || "?";
   return `<div class="poster" style="background:linear-gradient(145deg,hsl(${h} 62% 52%),hsl(${(h + 45) % 360} 62% 40%))" aria-hidden="true">${esc(ini)}</div>`;
@@ -475,7 +481,7 @@ function renderWatches() {
       : w.release_date ? `From release, ${fmtDate(w.release_date)}` : "All upcoming dates";
     const tags = [...(w.theatres || ["Any theatre"]), when, ...(w.languages || []).map((x) => x[0].toUpperCase() + x.slice(1)), ...(w.formats || []).map((x) => x.toUpperCase()), w.once ? "Alert once" : ""].filter(Boolean);
     const title = cleanTitle(w.movie || w.name);
-    return `<article class="card watch">${poster(title)}<div>
+    return `<article class="card watch">${poster(title, w.poster)}<div>
       <div class="row between" style="flex-wrap:nowrap;align-items:flex-start"><h3>${esc(title)}</h3><span class="pill ${st}">${st.toUpperCase()}</span></div>
       <div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <div class="stats">${st === "active" ? `Checks every ${interval(w)} min · last checked ${esc(ago(ws.last_check))}` : "Not checking"} · ${(ws.seen || []).length} shows known${ws.last_alert ? ` · alerted ${esc(ago(ws.last_alert))}` : ""}</div>
