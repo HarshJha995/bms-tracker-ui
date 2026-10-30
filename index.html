@@ -48,9 +48,6 @@ button{font:inherit;cursor:pointer}
 .dot{width:9px;height:9px;border-radius:50%;background:#7b8296;margin-left:auto;flex:none}
 .dot.on{background:#3ddc84;box-shadow:0 0 0 3px rgba(61,220,132,.2)}
 .dot.err{background:#ff7a90}
-#bar{height:3px;background:transparent;overflow:hidden}
-#bar i{display:block;height:100%;width:40%;background:var(--brand);border-radius:3px;opacity:0;transform:translateX(-100%)}
-body.busy #bar i{opacity:1;animation:slide 1.1s ease-in-out infinite}
 @keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
 
 /* ---------- nav (bottom tab bar on phones, inline on wide screens) ---------- */
@@ -58,6 +55,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);
   display:flex;justify-content:space-around;padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
 nav a{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:var(--mute);
   font-size:12px;font-weight:600;padding:6px 4px;border-radius:12px}
+nav a.running svg{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.3}}
 nav a svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav a[aria-current=page]{color:var(--brand)}
 @media (min-width:720px){
@@ -130,6 +129,11 @@ select{-webkit-appearance:none;appearance:none;padding-right:36px;
 .tag{font-size:12.5px;font-weight:600;background:var(--chip);border-radius:8px;padding:2px 8px}
 .stats{font-size:13px;color:var(--mute);display:flex;flex-wrap:wrap;gap:2px 14px}
 .stats span{white-space:nowrap}
+.apify{margin:12px 0 4px;padding:12px 14px;border-radius:12px;background:var(--chip)}
+.apify-n{font-weight:700}
+.apify-bar{height:8px;border-radius:99px;background:var(--line);margin-top:8px;overflow:hidden}
+.apify-bar i{display:block;height:100%;border-radius:99px;background:var(--ok);width:0}
+.apify-bar i.mid{background:var(--warn)}.apify-bar i.hi{background:var(--bad)}
 .combo{position:relative}
 input.locked{opacity:.6;cursor:not-allowed}
 .sugg{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);max-height:min(280px,38vh);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.22);padding:4px}
@@ -148,6 +152,7 @@ input.locked{opacity:.6;cursor:not-allowed}
 .run-head{margin:2px 0 0;overflow-wrap:anywhere}
 .run details{margin-top:10px}
 .run summary{cursor:pointer;font-size:13px;color:var(--mute);font-weight:600}
+.run .steps{margin:12px 0 0}
 .run pre{margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--chip);font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
 .run pre .w{color:var(--warn)}.run pre .e{color:var(--bad);font-weight:600}
 .run a.gl{font-size:12.5px;font-weight:600;color:var(--brand);text-decoration:none}
@@ -203,7 +208,6 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
     <span class="dot" id="dot" title="Not connected"></span>
     <nav aria-label="Main" id="nav-top"></nav>
   </div>
-  <div id="bar"><i></i></div>
 </header>
 
 <main>
@@ -263,7 +267,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
       <input id="codes" placeholder="ET00523251" autocapitalize="characters">
 
-      <label class="chk"><input type="checkbox" id="notify"> Alert for shows that already exist on the first check</label>
+      <label class="chk"><input type="checkbox" id="notify" checked> Tell me about shows that are already on sale</label>
       <label class="chk" style="margin-top:0"><input type="checkbox" id="once"> Stop after the first alert</label>
 
       <div class="row" style="margin-top:8px">
@@ -293,7 +297,12 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
     <div class="card" id="budgetcard">
       <b>Spending limits</b>
-      <p class="sub" style="margin:4px 0 0" id="spendnow"></p>
+      <div id="apifybox" class="apify" hidden>
+        <div class="row between"><span class="sub">Apify credit this month</span><span id="apifytxt" class="apify-n"></span></div>
+        <div class="apify-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i id="apifybar"></i></div>
+        <div class="hint" id="apifysub" style="margin-top:6px"></div>
+      </div>
+      <p class="sub" style="margin:10px 0 0" id="spendnow"></p>
       <div class="two">
         <div><label for="bday">Per day ($)</label><input id="bday" type="number" inputmode="decimal" step="0.05" min="0.01" max="20" placeholder="0.30"></div>
         <div><label for="brun">Per check ($)</label><input id="brun" type="number" inputmode="decimal" step="0.01" min="0.01" max="20" placeholder="0.05"></div>
@@ -350,12 +359,11 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
     <div><div class="act-t" id="actT"></div><div class="sub" id="actS"></div></div>
     <button class="act-x" id="actX" aria-label="Dismiss">×</button>
   </div>
-  <ol class="steps" id="steps"><li data-s="sent">Sent</li><li data-s="queued">Queued</li><li data-s="running">Running</li><li data-s="done">Done</li></ol>
 </div>
 
 <script>
 "use strict";
-const VERSION = "1.3.8";
+const VERSION = "1.6.0";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -366,7 +374,6 @@ const store = {
 const API = window.BMS_API || "https://api.github.com";
 const cfg = { repo: store.get("bmsw.repo", "HarshJha995/bms-tracker"), token: store.get("bmsw.token", ""), ref: "main" };
 const data = { watches: [], budget: {}, state: {}, catalog: [], loaded: false, error: null, at: null };
-let busy = false;
 
 const ICONS = {
   watch: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -395,9 +402,9 @@ async function readJson(file, fallback) {
   if (!r.ok) throw new Error(`Could not read ${file} (HTTP ${r.status}). Check the token has Contents: Read.`);
   return JSON.parse(await r.text());
 }
-async function loadRuns() {
+async function loadRuns(silent = false) {
   if (!cfg.token) return;
-  $("#asub").textContent = "Loading…";
+  if (!silent) $("#asub").textContent = "Loading…";
   try {
     const [log, r] = await Promise.all([readJson("runs.json", { runs: [] }), gh(`/repos/${cfg.repo}/actions/runs?per_page=25&t=${Date.now()}`)]);
     if (!r.ok) throw new Error(`Could not list runs (HTTP ${r.status}). Check the token has Actions: Read.`);
@@ -454,62 +461,81 @@ function posterTile(title) {
   return `<div class="poster" style="background:linear-gradient(145deg,hsl(${h} 62% 52%),hsl(${(h + 45) % 360} 62% 40%))" aria-hidden="true">${esc(ini)}</div>`;
 }
 
-// ---------- activity card (progress) ----------
-let actTimer;
-function activity(title, phase, sub = "", link = "") {
-  const el = $("#activity");
-  clearTimeout(actTimer);
-  const order = ["sent", "queued", "running", "done"];
-  const idx = phase === "failed" ? order.indexOf(activity.last || "running") : order.indexOf(phase);
-  if (phase !== "failed") activity.last = phase;
-  $("#steps").className = "steps" + (phase === "done" ? " okay" : phase === "failed" ? " fail" : "");
-  [...$("#steps").children].forEach((li, i) => li.classList.toggle("on", i <= idx));
-  $("#actT").textContent = phase === "done" ? title + " — done" : phase === "failed" ? title + " — failed" : title;
-  $("#actS").innerHTML = (sub ? esc(sub) : "") + (link ? ` <a href="${esc(link)}" target="_blank" rel="noopener">View the log</a>` : "");
-  $("#actIc").innerHTML = phase === "done" ? `<div class="act-ic ok">${ICONS.check}</div>` : phase === "failed" ? `<div class="act-ic bad">${ICONS.cross}</div>` : '<div class="spinner"></div>';
-  el.classList.add("show");
-  if (phase === "done") actTimer = setTimeout(hideActivity, 3500);
+// ---------- toast: a short confirmation, never blocks anything ----------
+let toastTimer;
+function toast(title, kind, sub = "", sticky = false) {            // `sub` is trusted HTML: callers escape user text
+  clearTimeout(toastTimer);
+  $("#actT").textContent = title;
+  $("#actS").innerHTML = sub;
+  $("#actIc").innerHTML = `<div class="act-ic ${kind === "bad" ? "bad" : "ok"}">${kind === "bad" ? ICONS.cross : ICONS.check}</div>`;
+  $("#activity").classList.add("show");
+  if (!sticky) toastTimer = setTimeout(hideToast, 6000);
 }
-const hideActivity = () => $("#activity").classList.remove("show");
+const hideToast = () => $("#activity").classList.remove("show");
+
+// ---------- actions run in the background ----------
+let busy = false;                // true only while the request is being sent (about a second)
+const jobs = [];                 // sent to GitHub, not finished yet: {workflow, label, started, runId}
+const jobLabels = {};            // run id -> what you asked for ("Adding “Dune”"), for the Activity list
+let jobTimer = null;
 
 function setBusy(b) {
   busy = b;
-  document.body.classList.toggle("busy", b);
   document.querySelectorAll("[data-idle]").forEach((x) => (x.disabled = b));
+}
+function renderBadge() {
+  document.querySelectorAll('nav a[data-v="activity"]').forEach((a) => a.classList.toggle("running", jobs.length > 0));
 }
 
 async function dispatch(workflow, inputs, label) {
   if (busy) return false;
   setBusy(true);
   const started = Date.now();
-  let ok = false;
   try {
-    activity(label, "sent", "Sending to GitHub…");
     const r = await gh(`/repos/${cfg.repo}/actions/workflows/${workflow}/dispatches`, { method: "POST", body: JSON.stringify({ ref: cfg.ref, inputs }) });
     if (r.status !== 204) {
       const msg = (await r.json().catch(() => ({}))).message || "HTTP " + r.status;
       throw new Error(msg + (r.status === 403 || r.status === 404 ? " — the token needs Actions: Read and write" : ""));
     }
-    let run = null;
-    for (let i = 0; i < 70; i++) {
-      await new Promise((res) => setTimeout(res, i < 3 ? 2500 : 4000));
-      const rr = await gh(`/repos/${cfg.repo}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=5`);
-      run = ((await rr.json()).workflow_runs || []).find((x) => new Date(x.created_at).getTime() >= started - 15000) || null;
-      if (!run) { activity(label, "sent", "Waiting for GitHub to pick it up…"); continue; }
-      if (run.status === "completed") break;
-      activity(label, run.status === "in_progress" ? "running" : "queued", run.status === "in_progress" ? "Running now…" : "Waiting for a runner…");
-    }
-    if (!run) throw new Error("The run didn't start. Check the Actions tab on GitHub.");
-    if (run.status !== "completed") activity(label, "running", "Still going in the background.", run.html_url);
-    else if (run.conclusion === "success") { activity(label, "done", "All set."); ok = true; }
-    else activity(label, "failed", "Something went wrong.", run.html_url);
-  } catch (e) { activity(label, "failed", e.message); }
-  setBusy(false);
-  await load();
-  loadRuns();
-  return ok;
+    jobs.push({ workflow, label, started, runId: null });
+    toast(label + " — started", "ok", 'It runs in the background. Follow it in <a href="#activity">Activity</a>.');
+    renderBadge(); renderWatches(); if (data.runs) renderRuns();
+    ensureTracking();
+    return true;
+  } catch (e) {
+    toast(label + " — couldn't start", "bad", esc(e.message), true);
+    return false;
+  } finally { setBusy(false); }
 }
 const control = (command, inputs = {}, label) => dispatch("control.yaml", { command, ...inputs }, label || command);
+
+function ensureTracking() { if (!jobTimer) { jobTimer = setInterval(trackJobs, 4000); trackJobs(); } }
+function matchJobs() {                  // pair each action we sent with the GitHub run it started
+  const runs = data.runs || [], claimed = new Set(jobs.map((j) => j.runId).filter(Boolean));
+  for (const j of jobs) {
+    if (j.runId) continue;
+    const run = runs.filter((x) => x.event === "workflow_dispatch" && String(x.path || "").endsWith("/" + j.workflow)
+      && new Date(x.created_at).getTime() >= j.started - 15000 && !claimed.has(x.id)).sort((x, y) => new Date(x.created_at) - new Date(y.created_at))[0];
+    if (run) { j.runId = run.id; claimed.add(run.id); jobLabels[run.id] = j.label; }
+  }
+}
+async function trackJobs() {
+  if (!jobs.length) { clearInterval(jobTimer); jobTimer = null; return; }
+  await loadRuns(true);
+  const runs = data.runs || [];
+  matchJobs();
+  let finished = false;
+  for (const j of [...jobs]) {
+    const run = runs.find((x) => x.id === j.runId);
+    if (run && run.status === "completed") {
+      jobs.splice(jobs.indexOf(j), 1); finished = true;
+      if (run.conclusion !== "success") toast(j.label + " — failed", "bad", 'See <a href="#activity">Activity</a> for what went wrong.', true);
+    } else if (Date.now() - j.started > 12 * 60000) { jobs.splice(jobs.indexOf(j), 1); finished = true; }
+  }
+  renderBadge();
+  if (finished) { await load(); if (data.runs) renderRuns(); }
+  if (!jobs.length) { clearInterval(jobTimer); jobTimer = null; }
+}
 
 // ---------- rendering ----------
 function renderNav() {
@@ -523,6 +549,7 @@ function showView() {
   if (v !== "add") exitEdit();
   for (const [id] of VIEWS) $("#v-" + id).hidden = id !== v;
   document.querySelectorAll("nav a").forEach((a) => (a.getAttribute("href") === "#" + v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
+  if (v === "activity") hideToast();
   if (v === "activity" && cfg.token && !data.runs) loadRuns();
   window.scrollTo(0, 0);
 }
@@ -531,7 +558,7 @@ function renderWatches() {
   if (data.error) { $("#wsub").textContent = ""; $("#watchList").innerHTML = `<div class="card"><b>Couldn't load</b><p class="sub">${esc(data.error)}</p></div>`; return; }
   if (!data.loaded) { $("#watchList").innerHTML = '<div class="empty sub">Loading…</div>'; return; }
   const active = data.watches.filter((w) => watchStatus(w, (data.state.watches || {})[w.name]) === "active").length;
-  $("#wsub").textContent = `${active} active · ${data.watches.length - active} inactive · updated ${data.at ? data.at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}`;
+  $("#wsub").textContent = `${active} active · ${data.watches.length - active} inactive · updated ${data.at ? data.at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}${jobs.length ? ` · ${jobs.length} update${jobs.length > 1 ? "s" : ""} in progress` : ""}`;
   const cron = data.state.cron_enabled;
   $("#wsub").textContent += cron === true ? " · scheduler on" : cron === false ? " · scheduler OFF" : "";
   const sub = cron === true ? "Checking automatically" : cron === false ? "Paused — nothing is being checked" : "State unknown";
@@ -557,6 +584,7 @@ function renderWatches() {
 }
 const RUN_ICON = { ok: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>', warn: '<svg viewBox="0 0 24 24"><path d="M12 7v6M12 17h.01"/></svg>', error: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>', pending: '<div class="spinner" style="width:16px;height:16px;border-width:2px"></div>' };
 function runTitle(r, e) {
+  if (jobLabels[r.id]) return jobLabels[r.id];
   if (e && e.kind === "control") return "Action: " + e.title;
   if (e) return "Check for new shows";
   if (r.name === "control") return "Action";
@@ -575,24 +603,42 @@ function runHeadline(r, e, level) {
   if (r.conclusion === "cancelled") return "Cancelled";
   return "Failed before it could report — see the full log";
 }
+const openRuns = new Set();                      // run ids whose output the user expanded (survives auto-refresh)
+function stepsHtml(idx, cls = "") {
+  return `<ol class="steps ${cls}">${["Sent", "Queued", "Running", "Done"].map((n, i) => `<li class="${i <= idx ? "on" : ""}">${n}</li>`).join("")}</ol>`;
+}
 function renderRuns() {
   const box = $("#runList");
   if (data.runsErr) { box.innerHTML = `<div class="card"><b>Couldn't load</b><p class="sub">${esc(data.runsErr)}</p></div>`; $("#asub").textContent = ""; return; }
   if (!data.runs) { box.innerHTML = '<div class="empty sub">Loading…</div>'; return; }
   $("#asub").textContent = `Latest ${data.runs.length} runs · updated ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
-  box.innerHTML = data.runs.length ? data.runs.map((r) => {
+  matchJobs();
+  const waiting = jobs.filter((j) => !j.runId).map((j) => `<article class="card run"><div class="run-h"><span class="run-ic pending">${RUN_ICON.pending}</span>
+      <div class="run-t"><b>${esc(j.label)}</b><div class="run-meta">${esc(ago(new Date(j.started).toISOString()))}</div>
+      <p class="run-head sub" style="margin:4px 0 0">Sent to GitHub — waiting for it to start…</p></div></div>${stepsHtml(0)}</article>`).join("");
+  box.innerHTML = waiting + (data.runs.length ? data.runs.map((r) => {
     const e = data.log[String(r.id)];
     const done = r.status === "completed";
     const level = !done ? "pending" : e ? e.level : r.conclusion === "success" ? "ok" : r.conclusion === "cancelled" ? "warn" : "error";
     const dur = done && r.run_started_at ? Math.max(1, Math.round((new Date(r.updated_at) - new Date(r.run_started_at)) / 1000)) : 0;
     const lines = e ? (e.lines || []) : [];
     const head = runHeadline(r, e, level);
-    const body = lines.length && !(lines.length === 1 && lines[0].t === head) ? `<details ${level === "error" || level === "warn" ? "open" : ""}><summary>${lines.length} line${lines.length > 1 ? "s" : ""} of output</summary><pre>${lines.map((x) => x.l === "error" ? `<span class="e">${esc(x.t)}</span>` : x.l === "warn" ? `<span class="w">${esc(x.t)}</span>` : esc(x.t)).join("\n")}</pre></details>` : "";
+    const recent = Date.now() - new Date(r.created_at) < 10 * 60000;
+    const stage = !done ? (r.status === "in_progress" ? 2 : 1) : r.conclusion === "success" ? 3 : 2;
+    const bar = !done || recent ? stepsHtml(stage, !done ? "" : r.conclusion === "success" ? "okay" : "fail") : "";
+    const isOpen = level === "error" || level === "warn" || openRuns.has(r.id);
+    const body = lines.length && !(lines.length === 1 && lines[0].t === head) ? `<details data-run="${r.id}" ${isOpen ? "open" : ""}><summary>${lines.length} line${lines.length > 1 ? "s" : ""} of output</summary><pre>${lines.map((x) => x.l === "error" ? `<span class="e">${esc(x.t)}</span>` : x.l === "warn" ? `<span class="w">${esc(x.t)}</span>` : esc(x.t)).join("\n")}</pre></details>` : "";
     return `<article class="card run"><div class="run-h"><span class="run-ic ${level}">${RUN_ICON[level]}</span>
       <div class="run-t"><b>${esc(runTitle(r, e))}</b><div class="run-meta">${esc(ago(r.created_at))}${dur ? " · took " + (dur >= 60 ? Math.floor(dur / 60) + " min" + (dur % 60 ? " " + (dur % 60) + " s" : "") : dur + " s") : ""} · <a class="gl" href="${esc(r.html_url)}" target="_blank" rel="noopener">Full log ↗</a></div>
-      <p class="run-head sub" style="margin:4px 0 0">${esc(head)}</p></div></div>${body}</article>`;
-  }).join("") : '<div class="card empty"><b>No runs yet</b></div>';
+      <p class="run-head sub" style="margin:4px 0 0">${esc(head)}</p></div></div>${bar}${body}</article>`;
+  }).join("") : '<div class="card empty"><b>No runs yet</b></div>');
 }
+$("#runList").addEventListener("toggle", (e) => { const d = e.target; if (d.dataset && d.dataset.run) { d.open ? openRuns.add(+d.dataset.run) : openRuns.delete(+d.dataset.run); } }, true);
+// keep the Activity page fresh while something is running
+setInterval(() => {
+  if ((location.hash || "") !== "#activity" || !cfg.token || document.hidden || jobTimer) return;
+  if (jobs.length || (data.runs || []).some((r) => r.status !== "completed")) loadRuns(true);
+}, 6000);
 function renderAdd() {
   const at = data.catalogAt;
   $("#catnote").innerHTML = data.catalog.length
@@ -633,6 +679,19 @@ function renderAccount() {
   document.querySelectorAll("[data-theme]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.theme === t)));
   const b = data.budget || {}, sp = data.state.spend || {};
   const today = todayIST(), day = b.per_day_usd ?? 0.30, run = b.per_run_usd ?? 0.05;
+  const ap = data.state.apify, ab = $("#apifybox");
+  if (ap && ap.limit > 0) {
+    const pct = Math.min(100, Math.max(0, (ap.used / ap.limit) * 100)), left = Math.max(0, ap.limit - ap.used);
+    ab.hidden = false;
+    $("#apifytxt").textContent = `$${left.toFixed(2)} left`;
+    $("#apifybar").style.width = pct + "%"; $("#apifybar").className = pct >= 90 ? "hi" : pct >= 70 ? "mid" : "";
+    ab.querySelector("[role=progressbar]").setAttribute("aria-valuenow", String(Math.round(pct)));
+    $("#apifysub").innerHTML = `$${ap.used.toFixed(2)} of $${ap.limit.toFixed(2)} used · resets ${esc(fmtDate(String(ap.resets).slice(0, 10)))} · as of ${esc(ago(ap.at))}. <button type="button" class="linkbtn" id="usagerefresh" ${busy ? "disabled" : ""}>Update</button>`;
+  } else {
+    ab.hidden = false; $("#apifytxt").textContent = "";
+    $("#apifybar").style.width = "0"; $("#apifybar").className = "";
+    $("#apifysub").innerHTML = `Not read yet. <button type="button" class="linkbtn" id="usagerefresh" ${busy ? "disabled" : ""}>Read from Apify</button> (free). It also updates after every check.`;
+  }
   $("#spendnow").textContent = `Estimated spend today: $${(sp.date === today ? sp.usd || 0 : 0).toFixed(3)} of $${Number(day).toFixed(2)}.`;
   if (document.activeElement !== $("#bday")) $("#bday").value = day;
   if (document.activeElement !== $("#brun")) $("#brun").value = run;
@@ -717,12 +776,13 @@ document.addEventListener("click", async (e) => {
     control(b.dataset.a, { name: w.name }, `${b.dataset.a[0].toUpperCase() + b.dataset.a.slice(1)} ${name}`);
   } else if (b.dataset.t === "check") dispatch("watcher.yaml", { force: "true" }, "Checking for new shows");
   else if (b.dataset.t) control(b.dataset.t, {}, { cron_on: "Turning scheduler on", cron_off: "Turning scheduler off", test_alert: "Sending a test alert" }[b.dataset.t]);
+  else if (b.id === "usagerefresh") control("usage", {}, "Reading Apify credit");
   else if (b.id === "catrefresh") control("catalog", {}, "Refreshing the movie list");
   else if (b.id === "lookup") {
     const m = $("#movie").value.trim(); if (!m) return $("#movie").focus();
     control("lookup", { movie: m }, "Looking up “" + shortLabel(m) + "”");          // the form is left exactly as typed
   } else if (b.dataset.theme) { store.set("bmsw.theme", b.dataset.theme); applyTheme(); renderAccount(); }
-  else if (b.id === "actX") hideActivity();
+  else if (b.id === "actX") hideToast();
   else if (b.id === "savebudget") control("budget", { budget_day: $("#bday").value, budget_run: $("#brun").value }, "Saving spending limits");
   else if (b.classList.contains("ms-btn")) { const id = b.closest(".ms").id; msCloseAll(id); msToggle(id); }
 });
