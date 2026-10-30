@@ -70,6 +70,11 @@ nav a[aria-current=page]{color:var(--brand)}
 @media (min-width:720px){.top-in nav{display:flex}body>nav{display:none}}
 
 /* ---------- layout ---------- */
+html.noptr,html.noptr body{overscroll-behavior-y:contain}
+#ptr{position:fixed;left:50%;top:64px;z-index:25;width:38px;height:38px;margin-left:-19px;border-radius:50%;background:var(--surface);border:1px solid var(--line);
+  box-shadow:0 4px 14px rgba(0,0,0,.25);display:grid;place-items:center;color:var(--brand);opacity:0;transform:translateY(-50px);pointer-events:none}
+#ptr svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#ptr.spin svg{animation:spin .8s linear infinite}
 main{max-width:760px;margin:0 auto;padding:20px 16px}
 h2{font-size:20px;margin:0 0 4px}
 .lead{color:var(--mute);margin:0 0 16px;font-size:14px}
@@ -210,6 +215,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
   </div>
 </header>
 
+<div id="ptr" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></svg></div>
 <main>
   <!-- ======== Watching ======== -->
   <section id="v-watch" hidden>
@@ -363,7 +369,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.6.1";
+const VERSION = "1.7.0";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -549,6 +555,7 @@ function showView() {
   if (v !== "add") exitEdit();
   for (const [id] of VIEWS) $("#v-" + id).hidden = id !== v;
   document.querySelectorAll("nav a").forEach((a) => (a.getAttribute("href") === "#" + v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
+  document.documentElement.classList.toggle("noptr", v === "activity");
   if (v === "activity") hideToast();
   if (v === "activity" && cfg.token && !data.runs) loadRuns();
   window.scrollTo(0, 0);
@@ -633,6 +640,31 @@ function renderRuns() {
   }).join("") : '<div class="card empty"><b>No runs yet</b></div>');
 }
 $("#runList").addEventListener("toggle", (e) => { const d = e.target; if (d.dataset && d.dataset.run) { d.open ? openRuns.add(+d.dataset.run) : openRuns.delete(+d.dataset.run); } }, true);
+// ---------- pull down to refresh (Activity page) ----------
+(() => {
+  const el = $("#ptr"), LIMIT = 90, TRIGGER = 62;
+  let y0 = null, pull = 0, busyPtr = false;
+  const active = () => (location.hash || "") === "#activity" && cfg.token && window.scrollY <= 0 && !busyPtr;
+  const paint = (d, anim) => { el.style.transition = anim ? "transform .25s,opacity .25s" : "none"; el.style.opacity = Math.min(1, d / 40); el.style.transform = `translateY(${d - 50}px) rotate(${d * 4}deg)`; };
+  document.addEventListener("touchstart", (e) => { y0 = active() && e.touches.length === 1 && !(e.target.closest && e.target.closest("input,textarea,select,.sugg,.ms")) ? e.touches[0].clientY : null; pull = 0; }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (y0 === null) return;
+    const dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || window.scrollY > 0) { if (pull) paint(pull = 0, true); return; }
+    pull = Math.min(LIMIT, dy * 0.5);
+    if (e.cancelable) e.preventDefault();               // stop the browser's own bounce / reload while pulling
+    paint(pull, false);
+  }, { passive: false });
+  const end = async () => {
+    if (y0 === null) return;
+    const go = pull >= TRIGGER; y0 = null;
+    if (!go) { paint(pull = 0, true); return; }
+    busyPtr = true; el.classList.add("spin"); paint(TRIGGER, true);
+    try { await loadRuns(); } finally { el.classList.remove("spin"); paint(pull = 0, true); busyPtr = false; }
+  };
+  document.addEventListener("touchend", end, { passive: true });
+  document.addEventListener("touchcancel", end, { passive: true });
+})();
 // keep the Activity page fresh while something is running
 setInterval(() => {
   if ((location.hash || "") !== "#activity" || !cfg.token || document.hidden || jobTimer) return;
