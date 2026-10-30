@@ -369,7 +369,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.7.0";
+const VERSION = "1.7.1";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -419,6 +419,44 @@ async function loadRuns(silent = false) {
     data.runsErr = null;
   } catch (e) { data.runsErr = e.message; }
   renderRuns();
+  loadChangelogs();                                   // fills in "what changed" for web-app updates, then redraws
+}
+
+// ---------- changelog for "Publish web app" runs: the commits since the previous publish, cleaned up ----------
+data.changes = data.changes || {};
+function cleanCommits(commits) {
+  const out = [];
+  for (const c of commits) {
+    const lines = String(c.commit.message || "").split("\n").map((x) => x.trim());
+    let subject = lines[0] || "";
+    if (/^Merge pull request/i.test(subject)) subject = lines.slice(1).find(Boolean) || "";    // use the PR title instead
+    if (!subject || /^(Merge |state:|control:)/i.test(subject)) continue;                      // merges and the bot's own commits
+    subject = subject.length > 110 ? subject.slice(0, 107) + "…" : subject;
+    if (!out.includes(subject)) out.push(subject);
+  }
+  return out;
+}
+async function loadChangelogs() {
+  const runs = data.runs || [];
+  const pubs = runs.filter((r) => r.name === "publish-ui" && r.status === "completed" && r.conclusion === "success").slice(0, 5);
+  let changed = false;
+  await Promise.all(pubs.map(async (r) => {
+    if (data.changes[r.id]) return;
+    try {
+      const prev = pubs.find((x) => new Date(x.created_at) < new Date(r.created_at));
+      let commits;
+      if (prev && prev.head_sha !== r.head_sha) {
+        const res = await gh(`/repos/${cfg.repo}/compare/${prev.head_sha}...${r.head_sha}`);
+        commits = res.ok ? (await res.json()).commits || [] : [];
+      } else {
+        const res = await gh(`/repos/${cfg.repo}/commits/${r.head_sha}`);
+        commits = res.ok ? [await res.json()] : [];
+      }
+      data.changes[r.id] = cleanCommits(commits.reverse());          // newest first
+      changed = true;
+    } catch (e) { data.changes[r.id] = []; }
+  }));
+  if (changed) renderRuns();
 }
 async function load() {
   if (!cfg.token) { renderAll(); return; }
@@ -606,7 +644,7 @@ function runHeadline(r, e, level) {
     const hit = pick(/NEW show/) ? "New shows found — alert sent" : pick(/baseline recorded/) ? "First look recorded — you'll be told about changes from now on" : pick(/nothing new/) ? "Checked — nothing new" : "";
     return hit || (L.length ? L[L.length - 1].t : "Done");
   }
-  if (r.conclusion === "success") return r.name === "trigger-watcher" ? "Nothing was due — no check needed" : r.name === "publish-ui" ? "Web app updated" : "Done";
+  if (r.conclusion === "success") return r.name === "trigger-watcher" ? "Nothing was due — no check needed" : r.name === "publish-ui" ? "Web app updated" + ((data.changes[r.id] || []).length ? ` — ${data.changes[r.id].length} change${data.changes[r.id].length > 1 ? "s" : ""}` : "") : "Done";
   if (r.conclusion === "cancelled") return "Cancelled";
   return "Failed before it could report — see the full log";
 }
@@ -628,12 +666,12 @@ function renderRuns() {
     const done = r.status === "completed";
     const level = !done ? "pending" : e ? e.level : r.conclusion === "success" ? "ok" : r.conclusion === "cancelled" ? "warn" : "error";
     const dur = done && r.run_started_at ? Math.max(1, Math.round((new Date(r.updated_at) - new Date(r.run_started_at)) / 1000)) : 0;
-    const lines = e ? (e.lines || []) : [];
+    const lines = e ? (e.lines || []) : (data.changes[r.id] || []).map((t) => ({ l: "info", t: "• " + t }));
     const head = runHeadline(r, e, level);
     const stage = r.status === "in_progress" ? 2 : 1;
     const bar = done ? "" : stepsHtml(stage);          // the stage bar is only for something still in progress
     const isOpen = level === "error" || level === "warn" || openRuns.has(r.id);
-    const body = lines.length && !(lines.length === 1 && lines[0].t === head) ? `<details data-run="${r.id}" ${isOpen ? "open" : ""}><summary>${lines.length} line${lines.length > 1 ? "s" : ""} of output</summary><pre>${lines.map((x) => x.l === "error" ? `<span class="e">${esc(x.t)}</span>` : x.l === "warn" ? `<span class="w">${esc(x.t)}</span>` : esc(x.t)).join("\n")}</pre></details>` : "";
+    const body = lines.length && !(lines.length === 1 && lines[0].t === head) ? `<details data-run="${r.id}" ${isOpen ? "open" : ""}><summary>${r.name === "publish-ui" && !e ? "What changed" : lines.length + " line" + (lines.length > 1 ? "s" : "") + " of output"}</summary><pre>${lines.map((x) => x.l === "error" ? `<span class="e">${esc(x.t)}</span>` : x.l === "warn" ? `<span class="w">${esc(x.t)}</span>` : esc(x.t)).join("\n")}</pre></details>` : "";
     return `<article class="card run"><div class="run-h"><span class="run-ic ${level}">${RUN_ICON[level]}</span>
       <div class="run-t"><b>${esc(runTitle(r, e))}</b><div class="run-meta">${esc(ago(r.created_at))}${dur ? " · took " + (dur >= 60 ? Math.floor(dur / 60) + " min" + (dur % 60 ? " " + (dur % 60) + " s" : "") : dur + " s") : ""} · <a class="gl" href="${esc(r.html_url)}" target="_blank" rel="noopener">Full log ↗</a></div>
       <p class="run-head sub" style="margin:4px 0 0">${esc(head)}</p></div></div>${bar}${body}</article>`;
