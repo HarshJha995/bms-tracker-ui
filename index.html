@@ -363,7 +363,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.6.0";
+const VERSION = "1.6.1";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -623,9 +623,8 @@ function renderRuns() {
     const dur = done && r.run_started_at ? Math.max(1, Math.round((new Date(r.updated_at) - new Date(r.run_started_at)) / 1000)) : 0;
     const lines = e ? (e.lines || []) : [];
     const head = runHeadline(r, e, level);
-    const recent = Date.now() - new Date(r.created_at) < 10 * 60000;
-    const stage = !done ? (r.status === "in_progress" ? 2 : 1) : r.conclusion === "success" ? 3 : 2;
-    const bar = !done || recent ? stepsHtml(stage, !done ? "" : r.conclusion === "success" ? "okay" : "fail") : "";
+    const stage = r.status === "in_progress" ? 2 : 1;
+    const bar = done ? "" : stepsHtml(stage);          // the stage bar is only for something still in progress
     const isOpen = level === "error" || level === "warn" || openRuns.has(r.id);
     const body = lines.length && !(lines.length === 1 && lines[0].t === head) ? `<details data-run="${r.id}" ${isOpen ? "open" : ""}><summary>${lines.length} line${lines.length > 1 ? "s" : ""} of output</summary><pre>${lines.map((x) => x.l === "error" ? `<span class="e">${esc(x.t)}</span>` : x.l === "warn" ? `<span class="w">${esc(x.t)}</span>` : esc(x.t)).join("\n")}</pre></details>` : "";
     return `<article class="card run"><div class="run-h"><span class="run-ic ${level}">${RUN_ICON[level]}</span>
