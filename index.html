@@ -139,6 +139,8 @@ select{-webkit-appearance:none;appearance:none;padding-right:36px;
 .apify-bar{height:8px;border-radius:99px;background:var(--line);margin-top:8px;overflow:hidden}
 .apify-bar i{display:block;height:100%;border-radius:99px;background:var(--ok);width:0}
 .apify-bar i.mid{background:var(--warn)}.apify-bar i.hi{background:var(--bad)}
+.posterbox{display:flex;gap:12px;align-items:flex-start}
+.posterbox .poster{flex:none}
 .combo{position:relative}
 input.locked{opacity:.6;cursor:not-allowed}
 .sugg{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);max-height:min(280px,38vh);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.22);padding:4px}
@@ -273,6 +275,15 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
       <input id="codes" placeholder="ET00523251" autocapitalize="characters">
 
+      <label for="poster">Poster <span class="sub">optional</span></label>
+      <div class="posterbox">
+        <div id="posterpv" style="flex:none" aria-hidden="true"></div>
+        <div style="flex:1;min-width:0">
+          <input id="poster" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="IMDb link, TMDB link or image link">
+          <div class="hint" id="posterhint">Wrong or missing poster? Paste the movie's IMDb page link (IMDb app → Share → Copy link). <button type="button" class="linkbtn" id="posterauto">Find automatically</button></div>
+        </div>
+      </div>
+
       <label class="chk"><input type="checkbox" id="notify" checked> Tell me about shows that are already on sale</label>
       <label class="chk" style="margin-top:0"><input type="checkbox" id="once"> Stop after the first alert</label>
 
@@ -369,7 +380,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.7.1";
+const VERSION = "1.8.0";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -797,6 +808,22 @@ function buildTheatres(extra = []) {
   msSummary("theatres");
 }
 let editing = null;                                              // name of the watch being edited, or null
+// ---- poster field: preview + "find automatically" ----
+let posterAuto = false, posterCurrent = "";
+function paintPosterPreview(url) { $("#posterpv").innerHTML = poster(($("#movie").value || "").trim() || "?", url); }
+function setPoster(current) { posterCurrent = current || ""; posterAuto = false; $("#poster").value = ""; paintPosterPreview(posterCurrent); }
+$("#poster").addEventListener("input", () => {
+  posterAuto = false;
+  const v = $("#poster").value.trim();
+  paintPosterPreview(/^https:\/\/\S+\.(jpe?g|png|webp|avif|gif)(\?\S*)?$/i.test(v) ? v : posterCurrent);   // live preview only for direct image links
+  $("#posterhint").dataset.note = "";
+});
+$("#posterauto").addEventListener("click", () => {
+  posterAuto = true; $("#poster").value = ""; paintPosterPreview("");
+  $("#poster").placeholder = "Will be looked up automatically when you save";
+});
+["input", "change"].forEach((ev) => $("#movie").addEventListener(ev, () => { if (!posterAuto) paintPosterPreview(/^https:\/\/\S+\.(jpe?g|png|webp|avif|gif)(\?\S*)?$/i.test($("#poster").value.trim()) ? $("#poster").value.trim() : posterCurrent); }));
+paintPosterPreview("");
 function enterEdit(w) {
   editing = w.name;
   const known = (k) => THEATRES.find(([key]) => key.toLowerCase() === String(k).toLowerCase() || key.toLowerCase().includes(String(k).toLowerCase()));
@@ -806,7 +833,8 @@ function enterEdit(w) {
   msSummary("theatres");
   msBoxes("langs").forEach((c) => (c.checked = (w.languages || []).includes(c.value)));
   msSummary("langs");
-  $("#movie").value = cleanTitle(w.movie || w.name); $("#movie").readOnly = true; $("#movie").classList.add("locked"); $("#movielock").hidden = false; $("#catnote").hidden = true; hideSugg();
+  $("#movie").value = cleanTitle(w.movie || w.name); $("#movie").readOnly = true;
+  setPoster(w.poster); $("#movie").classList.add("locked"); $("#movielock").hidden = false; $("#catnote").hidden = true; hideSugg();
   $("#fmt").value = (w.formats || [""])[0] || "";
   $("#from").value = (w.dates || {}).from || ""; $("#to").value = (w.dates || {}).to || ""; syncDates();
   $("#release").value = w.release_date || "";
@@ -826,7 +854,7 @@ function syncDates() {
 function exitEdit() {
   if (editing === null) return;
   editing = null;
-  $("#addform").reset(); $("#movie").readOnly = false; $("#movie").classList.remove("locked"); $("#movielock").hidden = true; $("#catnote").hidden = false;
+  $("#addform").reset(); setPoster("");   $("#poster").placeholder = "IMDb link, TMDB link or image link"; $("#movie").readOnly = false; $("#movie").classList.remove("locked"); $("#movielock").hidden = true; $("#catnote").hidden = false;
   buildTheatres(); msSummary("langs");
   $("#addtitle").textContent = "Add a watch";
   $("#addlead").textContent = "You'll get an alert the moment new show timings appear.";
@@ -863,7 +891,7 @@ $("#addform").addEventListener("submit", async (e) => {
   const ok = await control(editing ? "edit" : "add", {
     ...(editing ? { name: editing } : {}),
     movie: v("movie"), theatres: picked.join(", "), languages: msValues("langs").join(", ") || "any", formats: v("fmt"),
-    from_date: v("from"), to_date: v("to"), release_date: v("release"), event_codes: v("codes"),
+    from_date: v("from"), to_date: v("to"), release_date: v("release"), event_codes: v("codes"), poster_url: posterAuto ? "auto" : v("poster"),
     notify_existing: String($("#notify").checked), once: String($("#once").checked),
   }, editing ? "Saving changes" : "Adding “" + shortLabel(v("movie")) + "”");
   if (ok) { if (editing) exitEdit(); else { $("#addform").reset(); msSummary("langs"); msSummary("theatres"); } location.hash = "#watch"; }   // clear only after success
