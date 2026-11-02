@@ -51,7 +51,7 @@ button{font:inherit;cursor:pointer}
 @keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
 
 /* ---------- nav (bottom tab bar on phones, inline on wide screens) ---------- */
-nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
+nav{position:fixed;left:0;right:0;bottom:0;z-index:20;transform:translateZ(0);-webkit-transform:translateZ(0);background:var(--surface);border-top:1px solid var(--line);
   display:flex;justify-content:space-around;padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
 nav a{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:var(--mute);
   font-size:12px;font-weight:600;padding:6px 4px;border-radius:12px}
@@ -380,7 +380,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.8.0";
+const VERSION = "1.8.1";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -689,6 +689,18 @@ function renderRuns() {
   }).join("") : '<div class="card empty"><b>No runs yet</b></div>');
 }
 $("#runList").addEventListener("toggle", (e) => { const d = e.target; if (d.dataset && d.dataset.run) { d.open ? openRuns.add(+d.dataset.run) : openRuns.delete(+d.dataset.run); } }, true);
+// ---------- iOS: bars fixed to the bottom can stay floating after the keyboard closes ----------
+// Nudging the scroll position by a pixel and back (in the same frame) makes Safari re-anchor them.
+(() => {
+  const nudge = () => { const y = window.scrollY; window.scrollTo(0, y + 1); window.scrollTo(0, y); };
+  document.addEventListener("focusout", () => [80, 300, 700].forEach((ms) => setTimeout(nudge, ms)));
+  const vv = window.visualViewport;
+  if (vv) {
+    let last = vv.height;
+    vv.addEventListener("resize", () => { if (vv.height > last + 40) [50, 350].forEach((ms) => setTimeout(nudge, ms)); last = vv.height; });
+  }
+})();
+
 // ---------- pull down to refresh (Activity page) ----------
 (() => {
   const el = $("#ptr"), LIMIT = 90, TRIGGER = 62;
