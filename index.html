@@ -277,8 +277,8 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
       <input id="release" type="date">
       <div class="hint">Checks less often until the release gets close, and only watches the first week after release (saves credits). Leave empty for a movie already showing.</div>
 
-      <label for="codes">Event code(s) <span class="sub">optional, for special versions like Dolby 3D</span></label>
-      <input id="codes" placeholder="ET00523251" autocapitalize="characters">
+      <label for="codes">Event code(s) or links <span class="sub">each format (2D, 3D, IMAX) has its own code: open that version on BookMyShow and paste its link, or just the ET code</span></label>
+      <input id="codes" placeholder="ET00523251 or a BookMyShow link" autocapitalize="none">
 
       <label for="poster">Poster <span class="sub">optional</span></label>
       <div class="posterbox">
@@ -387,7 +387,7 @@ ol.how{padding-left:20px;margin:8px 0 0}ol.how li{margin:6px 0}
 
 <script>
 "use strict";
-const VERSION = "1.9.1";
+const VERSION = "1.9.2";
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
